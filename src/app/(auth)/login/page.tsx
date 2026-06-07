@@ -4,7 +4,7 @@ import React from "react";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion } from "@/components/motion";
 
 export default function LoginPage() {
   const [tab, setTab] = useState<"login" | "register">("login");
