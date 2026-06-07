@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
-// @ts-expect-error ical.js has no type declarations
+// @ts-ignore
 import ICAL from "ical.js";
 
 const PH_HOLIDAYS_ICAL_URL =

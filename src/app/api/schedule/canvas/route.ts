@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-// @ts-expect-error ical.js has no type declarations
+// @ts-ignore
 import ICAL from "ical.js";
 
 export async function GET() {
