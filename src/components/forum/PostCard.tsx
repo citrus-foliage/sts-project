@@ -1,0 +1,334 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { ForumPost } from "@/types/forum";
+import FlairBadge from "./FlairBadge";
+
+type Props = {
+  post: ForumPost;
+  currentUserId: string;
+  onUpvote: (postId: string) => void;
+  onFlag: (postId: string) => void;
+  onDelete: (postId: string) => void;
+};
+
+export default function PostCard({
+  post,
+  currentUserId,
+  onUpvote,
+  onFlag,
+  onDelete,
+}: Props) {
+  const router = useRouter();
+  const [showFlagConfirm, setShowFlagConfirm] = useState(false);
+
+  const isOwner = post.author_id === currentUserId;
+  const displayName = post.is_anonymous ? `Anonymous ${post.anon_code}` : "You";
+
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffMins < 1) return "just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden transition-all"
+      style={{
+        background: "#fff",
+        border: post.is_pinned
+          ? "0.5px solid rgba(79,142,247,0.3)"
+          : post.status === "pending_review"
+            ? "0.5px solid rgba(163,45,45,0.3)"
+            : "0.5px solid #ebebeb",
+        opacity: post.status === "pending_review" ? 0.75 : 1,
+      }}
+    >
+      <div className="flex">
+        {/* Upvote column */}
+        <div
+          className="flex flex-col items-center gap-1 px-3 py-4 flex-shrink-0"
+          style={{ background: "#fafafa", minWidth: "52px" }}
+        >
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUpvote(post.id);
+            }}
+            className="flex items-center justify-center rounded-lg transition-colors"
+            style={{
+              width: "28px",
+              height: "28px",
+              background: post.user_has_upvoted
+                ? "rgba(79,142,247,0.1)"
+                : "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: post.user_has_upvoted ? "#4f8ef7" : "#999",
+            }}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
+              <polyline points="18 15 12 9 6 15" />
+            </svg>
+          </button>
+          <span
+            className="text-xs font-medium"
+            style={{
+              color: post.user_has_upvoted ? "#4f8ef7" : "#666",
+              fontFamily: "monospace",
+            }}
+          >
+            {post.upvotes}
+          </span>
+        </div>
+
+        {/* Post content */}
+        <div
+          className="flex-1 px-4 py-4 cursor-pointer"
+          onClick={() => router.push(`/forum/${post.id}`)}
+        >
+          {/* Meta row */}
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            {post.is_pinned && (
+              <span
+                className="flex items-center gap-1 text-xs font-medium"
+                style={{ color: "#4f8ef7" }}
+              >
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <line x1="12" y1="17" x2="12" y2="22" />
+                  <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+                </svg>
+                Pinned
+              </span>
+            )}
+            <FlairBadge flair={post.flair} />
+            <span className="text-xs" style={{ color: "#999" }}>
+              {displayName}
+            </span>
+            <span style={{ color: "#ddd", fontSize: "10px" }}>·</span>
+            <span className="text-xs" style={{ color: "#999" }}>
+              {formatTime(post.created_at)}
+            </span>
+          </div>
+
+          {/* Title */}
+          <p
+            className="text-sm font-medium mb-1"
+            style={{ color: "#1a1a2e", lineHeight: 1.4 }}
+          >
+            {post.title}
+          </p>
+
+          {/* Body preview */}
+          <p
+            className="text-xs leading-relaxed line-clamp-2 mb-3"
+            style={{ color: "#666" }}
+          >
+            {post.body}
+          </p>
+
+          {/* Footer */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/forum/${post.id}`);
+              }}
+              className="flex items-center gap-1.5 text-xs"
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "#999",
+                fontFamily: "inherit",
+                padding: 0,
+              }}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              {post.comment_count ?? 0} comments
+            </button>
+
+            <div className="flex-1" />
+
+            {/* Flag */}
+            {!isOwner && !post.user_has_flagged && (
+              <>
+                {showFlagConfirm ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs" style={{ color: "#999" }}>
+                      Report this post?
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onFlag(post.id);
+                        setShowFlagConfirm(false);
+                      }}
+                      className="text-xs px-2 py-1 rounded-lg"
+                      style={{
+                        background: "rgba(163,45,45,0.1)",
+                        color: "#A32D2D",
+                        border: "none",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      Yes, report
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowFlagConfirm(false);
+                      }}
+                      className="text-xs px-2 py-1 rounded-lg"
+                      style={{
+                        background: "#f5f4f0",
+                        color: "#666",
+                        border: "none",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowFlagConfirm(true);
+                    }}
+                    className="flex items-center gap-1 text-xs"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "#ccc",
+                      fontFamily: "inherit",
+                      padding: 0,
+                    }}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                      <line x1="4" y1="22" x2="4" y2="15" />
+                    </svg>
+                    Report
+                  </button>
+                )}
+              </>
+            )}
+
+            {post.user_has_flagged && (
+              <span
+                className="flex items-center gap-1 text-xs"
+                style={{ color: "#A32D2D" }}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  stroke="none"
+                >
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                </svg>
+                Reported
+              </span>
+            )}
+
+            {/* Delete own post */}
+            {isOwner && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(post.id);
+                }}
+                className="text-xs"
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#ccc",
+                  fontFamily: "inherit",
+                  padding: 0,
+                }}
+              >
+                Delete
+              </button>
+            )}
+          </div>
+
+          {/* Pending review notice */}
+          {post.status === "pending_review" && (
+            <div
+              className="flex items-center gap-2 mt-3 px-3 py-2 rounded-lg text-xs"
+              style={{
+                background: "rgba(163,45,45,0.06)",
+                border: "0.5px solid rgba(163,45,45,0.15)",
+                color: "#A32D2D",
+              }}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              Under moderator review · content flagged by multiple users
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
