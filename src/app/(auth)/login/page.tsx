@@ -2,11 +2,11 @@
 
 import React from "react";
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "@/components/motion";
 
-export default function LoginPage() {
+function LoginContent() {
   const [tab, setTab] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -2336,3 +2336,11 @@ const MapPinIcon = () => (
     <circle cx="12" cy="10" r="3" />
   </svg>
 );
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
+  );
+}
