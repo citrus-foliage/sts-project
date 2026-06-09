@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { signIn } from "next-auth/react";
-import { useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "@/components/motion";
 
 function LoginContent() {
@@ -14,6 +14,31 @@ function LoginContent() {
   const [error, setError] = useState("");
   const [activeFeature, setActiveFeature] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState<number>(0);
+
+  const router = useRouter();
+  const { status } = useSession();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace("/dashboard");
+    }
+  }, [status, router]);
+
+  if (status === "loading") {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "#f5f4f0" }}
+      >
+        <p style={{ fontSize: "13px", color: "#999" }}>Loading...</p>
+      </div>
+    );
+  }
+
+  if (status === "authenticated") {
+    return null;
+  }
 
   const features = [
     {
@@ -821,7 +846,6 @@ function LoginContent() {
     },
   ];
 
-  const searchParams = useSearchParams();
   const authError = searchParams.get("error");
 
   const handleGoogleSignIn = async () => {
