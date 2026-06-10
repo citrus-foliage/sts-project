@@ -150,6 +150,29 @@ export default function PostCard({
             {post.body}
           </p>
 
+          {/* Image thumbnail */}
+          {post.image_url && (
+            <div
+              className="rounded-xl overflow-hidden mb-3"
+              style={{
+                border: "0.5px solid #ebebeb",
+                maxHeight: "180px",
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={post.image_url}
+                alt="Post image"
+                style={{
+                  width: "100%",
+                  maxHeight: "180px",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+            </div>
+          )}
+
           {/* Footer */}
           <div className="flex items-center gap-3">
             <button
