@@ -20,6 +20,7 @@ export type ForumPost = {
   flair: ForumFlair;
   title: string;
   body: string;
+  image_url?: string;
   upvotes: number;
   flag_count: number;
   status: PostStatus;
