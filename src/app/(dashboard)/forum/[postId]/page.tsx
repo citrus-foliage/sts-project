@@ -23,27 +23,39 @@ export default function PostDetailPage({
   const [commentAnon, setCommentAnon] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [userDisplayName, setUserDisplayName] = useState<string>("");
+  const [showDisplayName, setShowDisplayName] = useState<boolean>(false);
 
   const userId = session?.user?.email ?? "";
 
   const fetchPost = useCallback(async () => {
     try {
-      const [postRes, commentsRes] = await Promise.all([
+      const [postRes, commentsRes, settingsRes] = await Promise.all([
         fetch(`/api/forum/posts/${postId}`),
         fetch(`/api/forum/comments?postId=${postId}`),
+        fetch("/api/settings"),
       ]);
-      const [postData, commentsData] = await Promise.all([
+      const [postData, commentsData, settingsData] = await Promise.all([
         postRes.json(),
         commentsRes.json(),
+        settingsRes.json(),
       ]);
       if (postData.post) setPost(postData.post);
       if (commentsData.comments) setComments(commentsData.comments);
+      if (settingsData.settings) {
+        setShowDisplayName(
+          settingsData.settings.forum_show_display_name ?? false,
+        );
+        setUserDisplayName(
+          settingsData.settings.display_name ?? userId.split("@")[0],
+        );
+      }
     } catch (err) {
       console.error("Fetch post error:", err);
     } finally {
       setLoading(false);
     }
-  }, [postId]);
+  }, [postId, userId]);
 
   useEffect(() => {
     fetchPost();
@@ -245,6 +257,27 @@ export default function PostDetailPage({
               {post.body}
             </p>
 
+            {/* Full image */}
+            {post.image_url && (
+              <div
+                className="rounded-xl overflow-hidden mt-4"
+                style={{ border: "0.5px solid #ebebeb" }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={post.image_url}
+                  alt="Post image"
+                  style={{
+                    width: "100%",
+                    maxHeight: "480px",
+                    objectFit: "contain",
+                    display: "block",
+                    background: "#fafafa",
+                  }}
+                />
+              </div>
+            )}
+
             {post.status === "pending_review" && (
               <div
                 className="flex items-center gap-2 mt-4 px-3 py-2 rounded-lg text-xs"
@@ -391,6 +424,8 @@ export default function PostDetailPage({
                 depth={0}
                 onReplyAdded={fetchPost}
                 onUpvote={handleUpvoteComment}
+                showDisplayName={showDisplayName}
+                userDisplayName={userDisplayName}
               />
             ))}
           </div>
