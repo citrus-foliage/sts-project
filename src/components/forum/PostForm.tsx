@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ForumFlair, FLAIR_CONFIG } from "@/types/forum";
 import FlairBadge from "./FlairBadge";
 
@@ -10,6 +10,7 @@ type Props = {
     post_body: string;
     flair: ForumFlair;
     is_anonymous: boolean;
+    image_url?: string;
   }) => Promise<void>;
   onCancel: () => void;
 };
@@ -23,7 +24,14 @@ export default function PostForm({ onSubmit, onCancel }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Fetch user's forum anonymity preference
+  // Image states
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch anonymity preference
   useEffect(() => {
     fetch("/api/settings")
       .then((res) => res.json())
@@ -36,9 +44,71 @@ export default function PostForm({ onSubmit, onCancel }: Props) {
       .catch(() => setSettingsLoaded(true));
   }, []);
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadError("");
+
+    // Client-side validation before uploading
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      setUploadError("Only JPEG, PNG, GIF, and WebP images are allowed");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("Image must be under 5MB");
+      return;
+    }
+
+    // Show local preview immediately
+    const reader = new FileReader();
+    reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+
+    // Upload to Supabase
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/forum/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error);
+
+      setImageUrl(data.url);
+    } catch (err) {
+      setUploadError(
+        err instanceof Error ? err.message : "Upload failed — try again",
+      );
+      setImagePreview(null);
+      setImageUrl(null);
+    } finally {
+      setUploading(false);
+      // Reset file input so the same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImagePreview(null);
+    setImageUrl(null);
+    setUploadError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSubmit = async () => {
     if (!title.trim() || !body.trim()) {
       setError("Title and body are required");
+      return;
+    }
+    if (uploading) {
+      setError("Please wait for the image to finish uploading");
       return;
     }
     setLoading(true);
@@ -49,6 +119,7 @@ export default function PostForm({ onSubmit, onCancel }: Props) {
         post_body: body.trim(),
         flair,
         is_anonymous: isAnonymous,
+        image_url: imageUrl ?? undefined,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -141,6 +212,180 @@ export default function PostForm({ onSubmit, onCancel }: Props) {
         />
       </div>
 
+      {/* Image upload */}
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-medium" style={{ color: "#555" }}>
+          Image{" "}
+          <span style={{ color: "#bbb", fontWeight: 400 }}>
+            (optional — JPEG, PNG, GIF, WebP · max 5MB)
+          </span>
+        </label>
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onChange={handleFileSelect}
+          style={{ display: "none" }}
+        />
+
+        {imagePreview ? (
+          /* Image preview */
+          <div
+            className="relative rounded-xl overflow-hidden"
+            style={{ border: "0.5px solid #ebebeb" }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imagePreview}
+              alt="Preview"
+              style={{
+                width: "100%",
+                maxHeight: "240px",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+            {/* Upload overlay */}
+            {uploading && (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(255,255,255,0.8)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  fontSize: "12px",
+                  color: "#555",
+                }}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#4f8ef7"
+                  strokeWidth="2"
+                  style={{ animation: "spin 1s linear infinite" }}
+                >
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+                Uploading...
+              </div>
+            )}
+            {/* Uploaded badge */}
+            {!uploading && imageUrl && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "8px",
+                  left: "8px",
+                  background: "rgba(99,153,34,0.9)",
+                  color: "#fff",
+                  fontSize: "10px",
+                  fontWeight: 500,
+                  padding: "3px 8px",
+                  borderRadius: "10px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Uploaded
+              </div>
+            )}
+            {/* Remove button */}
+            <button
+              type="button"
+              onClick={handleRemoveImage}
+              style={{
+                position: "absolute",
+                top: "8px",
+                right: "8px",
+                width: "26px",
+                height: "26px",
+                borderRadius: "50%",
+                background: "rgba(0,0,0,0.5)",
+                border: "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#fff",
+              }}
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          /* Upload trigger button */
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              padding: "20px",
+              border: "1px dashed #e5e5e5",
+              borderRadius: "12px",
+              background: "#fafafa",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "8px",
+              color: "#999",
+              transition: "border-color 0.15s",
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="3" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+            <span style={{ fontSize: "12px" }}>Click to attach an image</span>
+            <span style={{ fontSize: "10px", color: "#bbb" }}>
+              JPEG, PNG, GIF, WebP · max 5MB
+            </span>
+          </button>
+        )}
+
+        {uploadError && (
+          <p className="text-xs" style={{ color: "#dc2626" }}>
+            {uploadError}
+          </p>
+        )}
+      </div>
+
       {/* Anonymous toggle */}
       <div
         className="flex items-center justify-between px-4 py-3 rounded-xl"
@@ -210,18 +455,25 @@ export default function PostForm({ onSubmit, onCancel }: Props) {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={loading}
+          disabled={loading || uploading}
           className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white"
           style={{
-            background: loading ? "#ccc" : "#1a1a2e",
+            background: loading || uploading ? "#ccc" : "#1a1a2e",
             border: "none",
-            cursor: loading ? "not-allowed" : "pointer",
+            cursor: loading || uploading ? "not-allowed" : "pointer",
             fontFamily: "inherit",
           }}
         >
-          {loading ? "Posting..." : "Post"}
+          {loading ? "Posting..." : uploading ? "Uploading image..." : "Post"}
         </button>
       </div>
+
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
