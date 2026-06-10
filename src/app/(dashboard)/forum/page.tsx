@@ -68,6 +68,7 @@ export default function ForumPage() {
     post_body: string;
     flair: ForumFlair;
     is_anonymous: boolean;
+    image_url?: string;
   }) => {
     const res = await fetch("/api/forum/posts", {
       method: "POST",
