@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
 
   const userId = session.user.email;
   const body = await req.json();
-  const { title, post_body, flair, is_anonymous } = body;
+  const { title, post_body, flair, is_anonymous, image_url } = body;
 
   if (!title || !post_body || !flair) {
     return NextResponse.json(
@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
       flair,
       title,
       body: post_body,
+      image_url: image_url ?? null,
     })
     .select()
     .single();
