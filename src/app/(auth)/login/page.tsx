@@ -7,7 +7,6 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "@/components/motion";
 
 function LoginContent() {
-  const [tab, setTab] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -1132,26 +1131,12 @@ function LoginContent() {
             {/* Card body */}
             <div className="px-6 py-5 flex flex-col gap-4">
               {/* Login / Register tabs */}
-              <div
-                className="flex rounded-xl p-1 gap-1"
-                style={{ background: "#f5f4f0" }}
+              <p
+                className="text-xs font-medium text-center"
+                style={{ color: "#999" }}
               >
-                {(["login", "register"] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTab(t)}
-                    className="flex-1 py-1.5 rounded-lg text-sm font-medium transition-all capitalize"
-                    style={{
-                      background: tab === t ? "#fff" : "transparent",
-                      color: tab === t ? "#1a1a2e" : "#888",
-                      boxShadow:
-                        tab === t ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
-                    }}
-                  >
-                    {t === "login" ? "Login" : "Register"}
-                  </button>
-                ))}
-              </div>
+                Sign in with your CIIT account to continue
+              </p>
 
               {/* Domain restriction badge */}
               <div
