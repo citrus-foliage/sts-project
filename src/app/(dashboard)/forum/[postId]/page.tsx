@@ -3,9 +3,17 @@
 import { useState, useEffect, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ForumPost, ForumComment } from "@/types/forum";
+import { ForumPost, ForumComment, ForumFlair } from "@/types/forum";
 import FlairBadge from "@/components/forum/FlairBadge";
 import CommentThread from "@/components/forum/CommentThread";
+import ForumSidebar from "@/components/forum/ForumSidebar";
+import RecentlyViewed from "@/components/forum/RecentlyViewed";
+
+type RecentPost = {
+  id: string;
+  title: string;
+  flair: ForumFlair;
+};
 
 export default function PostDetailPage({
   params,
@@ -27,6 +35,22 @@ export default function PostDetailPage({
   const [showDisplayName, setShowDisplayName] = useState<boolean>(false);
 
   const userId = session?.user?.email ?? "";
+
+  useEffect(() => {
+    if (!post) return;
+    try {
+      const key = "slm_recently_viewed";
+      const stored = localStorage.getItem(key);
+      const items: RecentPost[] = stored ? JSON.parse(stored) : [];
+      const updated = [
+        { id: post.id, title: post.title, flair: post.flair },
+        ...items.filter((p) => p.id !== post.id),
+      ].slice(0, 10);
+      localStorage.setItem(key, JSON.stringify(updated));
+    } catch {
+      // localStorage unavailable
+    }
+  }, [post]);
 
   const fetchPost = useCallback(async () => {
     try {
@@ -78,9 +102,7 @@ export default function PostDetailPage({
   };
 
   const handleUpvoteComment = async (commentId: string) => {
-    await fetch(`/api/forum/comments/${commentId}/upvote`, {
-      method: "POST",
-    });
+    await fetch(`/api/forum/comments/${commentId}/upvote`, { method: "POST" });
     fetchPost();
   };
 
@@ -154,282 +176,299 @@ export default function PostDetailPage({
   const displayName = post.is_anonymous ? `Anonymous ${post.anon_code}` : "You";
 
   return (
-    <div className="flex flex-col gap-4 max-w-2xl mx-auto">
-      {/* ── Back button ── */}
-      <button
-        type="button"
-        onClick={() => router.push("/forum")}
-        className="flex items-center gap-2 text-xs w-fit"
-        style={{
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          color: "#666",
-          fontFamily: "inherit",
-          padding: 0,
-        }}
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
-        Back to Discussion Hub
-      </button>
-
-      {/* ── Post ── */}
+    <div className="flex gap-5 h-full">
+      {/* Left sidebar — community context */}
       <div
-        className="rounded-2xl overflow-hidden"
-        style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+        className="flex-shrink-0 flex flex-col gap-3"
+        style={{ width: "220px" }}
       >
-        <div className="flex">
-          {/* Upvote column */}
-          <div
-            className="flex flex-col items-center gap-2 px-4 py-5 flex-shrink-0"
-            style={{ background: "#fafafa", minWidth: "60px" }}
+        {/* Back button */}
+        <button
+          type="button"
+          onClick={() => router.push("/forum")}
+          className="flex items-center gap-2 text-xs w-fit"
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "#666",
+            fontFamily: "inherit",
+            padding: 0,
+          }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
           >
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Back to feed
+        </button>
+
+        <ForumSidebar />
+      </div>
+
+      {/* Center — post + comments */}
+      <div className="flex flex-col gap-4 flex-1 min-w-0">
+        {/* Post card */}
+        <div
+          className="rounded-2xl"
+          style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+        >
+          <div className="flex">
+            {/* Upvote column */}
+            <div
+              className="flex flex-col items-center gap-2 px-4 py-5 flex-shrink-0"
+              style={{ background: "#fafafa", minWidth: "60px" }}
+            >
+              <button
+                type="button"
+                onClick={handleUpvotePost}
+                className="flex items-center justify-center rounded-xl transition-colors"
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  background: post.user_has_upvoted
+                    ? "rgba(79,142,247,0.1)"
+                    : "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: post.user_has_upvoted ? "#4f8ef7" : "#999",
+                }}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <polyline points="18 15 12 9 6 15" />
+                </svg>
+              </button>
+              <span
+                className="text-sm font-medium"
+                style={{
+                  color: post.user_has_upvoted ? "#4f8ef7" : "#666",
+                  fontFamily: "monospace",
+                }}
+              >
+                {post.upvotes}
+              </span>
+            </div>
+
+            {/* Post content */}
+            <div className="flex-1 px-5 py-5">
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <FlairBadge flair={post.flair} size="md" />
+                <span className="text-xs" style={{ color: "#999" }}>
+                  {displayName}
+                </span>
+                <span style={{ color: "#ddd", fontSize: "10px" }}>·</span>
+                <span className="text-xs" style={{ color: "#bbb" }}>
+                  {formatTime(post.created_at)}
+                </span>
+              </div>
+
+              <h1
+                className="text-lg font-semibold mb-3"
+                style={{ color: "#1a1a2e", lineHeight: 1.35 }}
+              >
+                {post.title}
+              </h1>
+
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: "#444", lineHeight: 1.75 }}
+              >
+                {post.body}
+              </p>
+
+              {/* Full image */}
+              {post.image_url && (
+                <div
+                  className="rounded-xl overflow-hidden mt-4"
+                  style={{
+                    border: "0.5px solid #ebebeb",
+                    background: "#fafafa",
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={post.image_url}
+                    alt="Post image"
+                    style={{
+                      width: "100%",
+                      height: "auto",
+                      display: "block",
+                    }}
+                  />
+                </div>
+              )}
+
+              {post.status === "pending_review" && (
+                <div
+                  className="flex items-center gap-2 mt-4 px-3 py-2 rounded-lg text-xs"
+                  style={{
+                    background: "rgba(163,45,45,0.06)",
+                    border: "0.5px solid rgba(163,45,45,0.15)",
+                    color: "#A32D2D",
+                  }}
+                >
+                  This post is under moderator review.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Comment box */}
+        <div
+          className="rounded-2xl p-5 flex flex-col gap-3"
+          style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+        >
+          <p className="text-sm font-medium" style={{ color: "#1a1a2e" }}>
+            Leave a comment
+          </p>
+          <textarea
+            placeholder="Share your thoughts..."
+            value={commentBody}
+            onChange={(e) => setCommentBody(e.target.value)}
+            rows={3}
+            className="px-3 py-2.5 rounded-xl text-sm outline-none resize-none"
+            style={{
+              border: "1px solid #e5e5e5",
+              background: "#fafafa",
+              fontFamily: "inherit",
+            }}
+          />
+
+          <div className="flex items-center gap-3">
+            {/* Anonymous toggle */}
             <button
               type="button"
-              onClick={handleUpvotePost}
-              className="flex items-center justify-center rounded-xl transition-colors"
+              onClick={() => setCommentAnon(!commentAnon)}
+              className="flex items-center gap-1.5 text-xs"
               style={{
-                width: "32px",
-                height: "32px",
-                background: post.user_has_upvoted
-                  ? "rgba(79,142,247,0.1)"
-                  : "transparent",
+                background: "none",
                 border: "none",
                 cursor: "pointer",
-                color: post.user_has_upvoted ? "#4f8ef7" : "#999",
+                color: commentAnon ? "#4f8ef7" : "#999",
+                fontFamily: "inherit",
+                padding: 0,
               }}
             >
+              <div
+                style={{
+                  width: "14px",
+                  height: "14px",
+                  borderRadius: "3px",
+                  border: `1.5px solid ${commentAnon ? "#4f8ef7" : "#ccc"}`,
+                  background: commentAnon ? "#4f8ef7" : "transparent",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {commentAnon && (
+                  <svg
+                    width="8"
+                    height="8"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#fff"
+                    strokeWidth="3"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </div>
+              Comment anonymously
+            </button>
+
+            <div className="flex-1" />
+
+            {error && (
+              <p className="text-xs" style={{ color: "#dc2626" }}>
+                {error}
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleSubmitComment}
+              disabled={submitting || !commentBody.trim()}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-white"
+              style={{
+                background:
+                  submitting || !commentBody.trim() ? "#ccc" : "#1a1a2e",
+                border: "none",
+                cursor:
+                  submitting || !commentBody.trim() ? "not-allowed" : "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              {submitting ? "Posting..." : "Comment"}
+            </button>
+          </div>
+        </div>
+
+        {/* Comments list */}
+        <div
+          className="rounded-2xl px-5 py-4"
+          style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+        >
+          <p className="text-sm font-medium mb-4" style={{ color: "#1a1a2e" }}>
+            {comments.length} {comments.length === 1 ? "comment" : "comments"}
+          </p>
+
+          {comments.length === 0 ? (
+            <div
+              className="flex flex-col items-center justify-center py-10 gap-2"
+              style={{ color: "#bbb" }}
+            >
               <svg
-                width="16"
-                height="16"
+                width="24"
+                height="24"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2.5"
+                strokeWidth="1.5"
               >
-                <polyline points="18 15 12 9 6 15" />
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
-            </button>
-            <span
-              className="text-sm font-medium"
-              style={{
-                color: post.user_has_upvoted ? "#4f8ef7" : "#666",
-                fontFamily: "monospace",
-              }}
-            >
-              {post.upvotes}
-            </span>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 px-5 py-5">
-            <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <FlairBadge flair={post.flair} size="md" />
-              <span className="text-xs" style={{ color: "#999" }}>
-                {displayName}
-              </span>
-              <span style={{ color: "#ddd", fontSize: "10px" }}>·</span>
-              <span className="text-xs" style={{ color: "#bbb" }}>
-                {formatTime(post.created_at)}
-              </span>
+              <p style={{ fontSize: "12px", color: "#999" }}>
+                No comments yet — be the first to respond
+              </p>
             </div>
-
-            <h1
-              className="text-lg font-semibold mb-3"
-              style={{ color: "#1a1a2e", lineHeight: 1.35 }}
-            >
-              {post.title}
-            </h1>
-
-            <p
-              className="text-sm leading-relaxed"
-              style={{ color: "#444", lineHeight: 1.75 }}
-            >
-              {post.body}
-            </p>
-
-            {/* Full image */}
-            {post.image_url && (
-              <div
-                className="rounded-xl overflow-hidden mt-4"
-                style={{ border: "0.5px solid #ebebeb" }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={post.image_url}
-                  alt="Post image"
-                  style={{
-                    width: "100%",
-                    maxHeight: "480px",
-                    objectFit: "contain",
-                    display: "block",
-                    background: "#fafafa",
-                  }}
+          ) : (
+            <div>
+              {comments.map((comment) => (
+                <CommentThread
+                  key={comment.id}
+                  comment={comment}
+                  currentUserId={userId}
+                  postId={postId}
+                  depth={0}
+                  onReplyAdded={fetchPost}
+                  onUpvote={handleUpvoteComment}
+                  showDisplayName={showDisplayName}
+                  userDisplayName={userDisplayName}
                 />
-              </div>
-            )}
-
-            {post.status === "pending_review" && (
-              <div
-                className="flex items-center gap-2 mt-4 px-3 py-2 rounded-lg text-xs"
-                style={{
-                  background: "rgba(163,45,45,0.06)",
-                  border: "0.5px solid rgba(163,45,45,0.15)",
-                  color: "#A32D2D",
-                }}
-              >
-                This post is under moderator review.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Comment box ── */}
-      <div
-        className="rounded-2xl p-5 flex flex-col gap-3"
-        style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
-      >
-        <p className="text-sm font-medium" style={{ color: "#1a1a2e" }}>
-          Leave a comment
-        </p>
-        <textarea
-          placeholder="Share your thoughts..."
-          value={commentBody}
-          onChange={(e) => setCommentBody(e.target.value)}
-          rows={3}
-          className="px-3 py-2.5 rounded-xl text-sm outline-none resize-none"
-          style={{
-            border: "1px solid #e5e5e5",
-            background: "#fafafa",
-            fontFamily: "inherit",
-          }}
-        />
-
-        <div className="flex items-center gap-3">
-          {/* Anonymous toggle */}
-          <button
-            type="button"
-            onClick={() => setCommentAnon(!commentAnon)}
-            className="flex items-center gap-1.5 text-xs"
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: commentAnon ? "#4f8ef7" : "#999",
-              fontFamily: "inherit",
-              padding: 0,
-            }}
-          >
-            <div
-              style={{
-                width: "14px",
-                height: "14px",
-                borderRadius: "3px",
-                border: `1.5px solid ${commentAnon ? "#4f8ef7" : "#ccc"}`,
-                background: commentAnon ? "#4f8ef7" : "transparent",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {commentAnon && (
-                <svg
-                  width="8"
-                  height="8"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#fff"
-                  strokeWidth="3"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              )}
+              ))}
             </div>
-            Comment anonymously
-          </button>
-
-          <div className="flex-1" />
-
-          {error && (
-            <p className="text-xs" style={{ color: "#dc2626" }}>
-              {error}
-            </p>
           )}
-
-          <button
-            type="button"
-            onClick={handleSubmitComment}
-            disabled={submitting || !commentBody.trim()}
-            className="px-4 py-2 rounded-xl text-sm font-medium text-white"
-            style={{
-              background:
-                submitting || !commentBody.trim() ? "#ccc" : "#1a1a2e",
-              border: "none",
-              cursor:
-                submitting || !commentBody.trim() ? "not-allowed" : "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            {submitting ? "Posting..." : "Comment"}
-          </button>
         </div>
       </div>
 
-      {/* ── Comments ── */}
-      <div
-        className="rounded-2xl px-5 py-4"
-        style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
-      >
-        <p className="text-sm font-medium mb-4" style={{ color: "#1a1a2e" }}>
-          {comments.length} {comments.length === 1 ? "comment" : "comments"}
-        </p>
-
-        {comments.length === 0 ? (
-          <div
-            className="flex flex-col items-center justify-center py-10 gap-2"
-            style={{ color: "#bbb" }}
-          >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            <p style={{ fontSize: "12px", color: "#999" }}>
-              No comments yet — be the first to respond
-            </p>
-          </div>
-        ) : (
-          <div>
-            {comments.map((comment) => (
-              <CommentThread
-                key={comment.id}
-                comment={comment}
-                currentUserId={userId}
-                postId={postId}
-                depth={0}
-                onReplyAdded={fetchPost}
-                onUpvote={handleUpvoteComment}
-                showDisplayName={showDisplayName}
-                userDisplayName={userDisplayName}
-              />
-            ))}
-          </div>
-        )}
+      {/* Right sidebar — recently viewed */}
+      <div className="flex-shrink-0" style={{ width: "220px" }}>
+        <RecentlyViewed excludePostId={postId} />
       </div>
     </div>
   );
