@@ -2,14 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
-import {
-  ForumPost,
-  ForumFlair,
-  FLAIR_CONFIG,
-  FORUM_RULES,
-} from "@/types/forum";
+import { ForumPost, ForumFlair, FLAIR_CONFIG } from "@/types/forum";
 import PostCard from "@/components/forum/PostCard";
 import PostForm from "@/components/forum/PostForm";
+import ForumSidebar from "@/components/forum/ForumSidebar";
+import RecentlyViewed from "@/components/forum/RecentlyViewed";
 
 type SortMode = "new" | "hot" | "top";
 
@@ -18,14 +15,12 @@ export default function ForumPage() {
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [showRules, setShowRules] = useState(false);
   const [sort, setSort] = useState<SortMode>("new");
   const [flairFilter, setFlairFilter] = useState<ForumFlair | "all">("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Debounce search input
   const handleSearchChange = (value: string) => {
     setSearch(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -118,8 +113,13 @@ export default function ForumPage() {
   ][];
 
   return (
-    <div className="flex gap-5">
-      {/* ── Main column ── */}
+    <div className="flex gap-5 h-full">
+      {/* Left sidebar — community context */}
+      <div className="flex-shrink-0" style={{ width: "220px" }}>
+        <ForumSidebar />
+      </div>
+
+      {/* Center — posts feed */}
       <div className="flex flex-col gap-4 flex-1 min-w-0">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -173,10 +173,7 @@ export default function ForumPage() {
         {/* Search bar */}
         <div
           className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
-          style={{
-            background: "#fff",
-            border: "0.5px solid #ebebeb",
-          }}
+          style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
         >
           <svg
             width="14"
@@ -232,7 +229,6 @@ export default function ForumPage() {
 
         {/* Sort + Flair filter */}
         <div className="flex flex-col gap-2">
-          {/* Sort tabs */}
           <div className="flex items-center gap-3">
             <div
               className="flex rounded-xl p-1 gap-0.5"
@@ -349,7 +345,8 @@ export default function ForumPage() {
             {debouncedSearch.trim() && (
               <span>
                 {" "}
-                for &quot;<strong>{debouncedSearch.trim()}</strong>&quot;
+                for &quot;
+                <strong>{debouncedSearch.trim()}</strong>&quot;
               </span>
             )}
             {flairFilter !== "all" && (
@@ -422,116 +419,9 @@ export default function ForumPage() {
         )}
       </div>
 
-      {/* ── Right sidebar ── */}
-      <div
-        className="flex-shrink-0 flex flex-col gap-4"
-        style={{ width: "220px" }}
-      >
-        {/* Community rules */}
-        <div
-          className="rounded-2xl overflow-hidden"
-          style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
-        >
-          <div
-            className="flex items-center justify-between px-4 py-3 cursor-pointer"
-            style={{ borderBottom: showRules ? "0.5px solid #ebebeb" : "none" }}
-            onClick={() => setShowRules(!showRules)}
-          >
-            <p className="text-xs font-medium" style={{ color: "#1a1a2e" }}>
-              Community Rules
-            </p>
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#999"
-              strokeWidth="2"
-              style={{
-                transform: showRules ? "rotate(180deg)" : "rotate(0)",
-                transition: "transform 0.2s",
-              }}
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </div>
-          {showRules && (
-            <div className="px-4 py-3 flex flex-col gap-2.5">
-              {FORUM_RULES.map((rule, i) => (
-                <div key={i} className="flex gap-2 items-start">
-                  <span
-                    className="flex-shrink-0 text-xs font-semibold"
-                    style={{ color: "#4f8ef7", minWidth: "16px" }}
-                  >
-                    {i + 1}
-                  </span>
-                  <p
-                    className="text-xs"
-                    style={{ color: "#666", lineHeight: 1.5 }}
-                  >
-                    {rule}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Flair guide */}
-        <div
-          className="rounded-2xl p-4 flex flex-col gap-3"
-          style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
-        >
-          <p className="text-xs font-medium" style={{ color: "#1a1a2e" }}>
-            Flair Guide
-          </p>
-          {flairs.map(([f, config]) => (
-            <div key={f} className="flex items-center gap-2">
-              <div
-                className="rounded-full flex-shrink-0"
-                style={{ width: 8, height: 8, background: config.color }}
-              />
-              <div>
-                <p
-                  className="text-xs font-medium"
-                  style={{ color: config.color }}
-                >
-                  {config.label}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Anonymity notice */}
-        <div
-          className="rounded-2xl p-4 flex flex-col gap-2"
-          style={{
-            background: "rgba(79,142,247,0.05)",
-            border: "0.5px solid rgba(79,142,247,0.15)",
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#4f8ef7"
-              strokeWidth="2"
-            >
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
-            <p className="text-xs font-medium" style={{ color: "#4f8ef7" }}>
-              About anonymity
-            </p>
-          </div>
-          <p className="text-xs" style={{ color: "#666", lineHeight: 1.55 }}>
-            Anonymous posts hide your name publicly but moderators can always
-            identify the author. Anonymity is not an excuse to violate community
-            rules.
-          </p>
-        </div>
+      {/* ── Right sidebar — recently viewed ── */}
+      <div className="flex-shrink-0" style={{ width: "220px" }}>
+        <RecentlyViewed />
       </div>
     </div>
   );
