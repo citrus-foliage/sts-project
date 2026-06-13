@@ -187,6 +187,26 @@ function LogoutIcon() {
   );
 }
 
+// Chevron arrow — flips direction based on collapsed state
+function ChevronIcon({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      style={{
+        transform: collapsed ? "rotate(180deg)" : "rotate(0deg)",
+        transition: "transform 0.3s ease",
+      }}
+    >
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
 const navigation = [
   {
     items: [{ label: "Overview", href: "/dashboard", icon: <GridIcon /> }],
@@ -224,6 +244,8 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
+  // Controls whether the sidebar is collapsed to icon-only width
+  const [collapsed, setCollapsed] = useState(false);
 
   const isActive = (href: string) => pathname === href;
 
@@ -252,15 +274,18 @@ export default function Sidebar() {
     <aside
       className="flex flex-col h-screen sticky top-0"
       style={{
-        width: "220px",
-        minWidth: "220px",
+        // Animates between full width and icon-only width
+        width: collapsed ? "52px" : "220px",
+        minWidth: collapsed ? "52px" : "220px",
+        transition: "width 0.3s ease, min-width 0.3s ease",
         background: "#0f1117",
         borderRight: "0.5px solid rgba(255,255,255,0.06)",
+        overflow: "hidden",
       }}
     >
       {/* ── Logo + User ── */}
       <div
-        className="px-4 pt-5 pb-4"
+        className="px-4 pt-5 pb-2"
         style={{ borderBottom: "0.5px solid rgba(255,255,255,0.07)" }}
       >
         {/* Workspace */}
@@ -271,12 +296,14 @@ export default function Sidebar() {
           >
             SL
           </div>
-          <span
-            className="text-sm font-medium truncate"
-            style={{ color: "#e8e8ec" }}
-          >
-            Student Life Manager
-          </span>
+          {!collapsed && (
+            <span
+              className="text-sm font-medium truncate"
+              style={{ color: "#e8e8ec" }}
+            >
+              Student Life Manager
+            </span>
+          )}
         </div>
 
         {/* User pill */}
@@ -287,28 +314,61 @@ export default function Sidebar() {
           >
             {initials}
           </div>
-          <div className="flex-1 min-w-0">
-            <p
-              className="text-xs font-medium truncate"
-              style={{ color: "#c0c0cc" }}
-            >
-              {firstName}
-            </p>
-            <p
-              className="truncate"
-              style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)" }}
-            >
-              {email}
-            </p>
-          </div>
+          {!collapsed && (
+            <div className="flex-1 min-w-0">
+              <p
+                className="text-xs font-medium truncate"
+                style={{ color: "#c0c0cc" }}
+              >
+                {firstName}
+              </p>
+              <p
+                className="truncate"
+                style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)" }}
+              >
+                {email}
+              </p>
+            </div>
+          )}
         </div>
+
+        {/* Collapse toggle — lives in the fixed header so it's always visible when scrolling */}
+        <button
+          type="button"
+          onClick={() => setCollapsed((prev) => !prev)}
+          className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg w-full mt-2 transition-colors`}
+          style={{
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            textAlign: "left",
+          }}
+          title={collapsed ? "Expand sidebar" : undefined}
+        >
+          <span
+            style={{
+              color: "rgba(255,255,255,0.25)",
+              fontSize: "16px",
+              width: "18px",
+              textAlign: "center",
+            }}
+          >
+            <ChevronIcon collapsed={collapsed} />
+          </span>
+          {!collapsed && (
+            <span className="text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>
+              Collapse Sidebar
+            </span>
+          )}
+        </button>
       </div>
 
       {/* ── Navigation ── */}
       <nav className="flex-1 overflow-y-auto py-2 px-2.5">
         {navigation.map((group, gi) => (
           <div key={gi} className="mb-1">
-            {group.label && (
+            {group.label && !collapsed && (
               <p
                 className="px-2 mb-1 mt-3 uppercase tracking-widest"
                 style={{
@@ -327,13 +387,14 @@ export default function Sidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg mb-0.5 relative transition-colors"
+                  className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg mb-0.5 relative transition-colors`}
                   style={{
                     background: active
                       ? "rgba(79,142,247,0.15)"
                       : "transparent",
                     textDecoration: "none",
                   }}
+                  title={collapsed ? item.label : undefined}
                 >
                   {active && (
                     <span
@@ -358,14 +419,16 @@ export default function Sidebar() {
                   >
                     {item.icon}
                   </span>
-                  <span
-                    className="text-sm flex-1"
-                    style={{
-                      color: active ? "#e8e8ec" : "rgba(255,255,255,0.55)",
-                    }}
-                  >
-                    {item.label}
-                  </span>
+                  {!collapsed && (
+                    <span
+                      className="text-sm flex-1"
+                      style={{
+                        color: active ? "#e8e8ec" : "rgba(255,255,255,0.55)",
+                      }}
+                    >
+                      {item.label}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -391,8 +454,9 @@ export default function Sidebar() {
           <Link
             key={item.href}
             href={item.href}
-            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg mb-0.5 transition-colors"
+            className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg mb-0.5 transition-colors`}
             style={{ textDecoration: "none" }}
+            title={collapsed ? item.label : undefined}
           >
             <span
               style={{
@@ -404,12 +468,14 @@ export default function Sidebar() {
             >
               {item.icon}
             </span>
-            <span
-              className="text-sm"
-              style={{ color: "rgba(255,255,255,0.55)" }}
-            >
-              {item.label}
-            </span>
+            {!collapsed && (
+              <span
+                className="text-sm"
+                style={{ color: "rgba(255,255,255,0.55)" }}
+              >
+                {item.label}
+              </span>
+            )}
           </Link>
         ))}
 
@@ -418,7 +484,7 @@ export default function Sidebar() {
           type="button"
           onClick={handleSignOut}
           disabled={signingOut}
-          className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg w-full mt-1 transition-colors"
+          className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg w-full mt-1 transition-colors`}
           style={{
             background: "transparent",
             border: "none",
@@ -429,6 +495,7 @@ export default function Sidebar() {
             position: "relative",
             zIndex: 10,
           }}
+          title={collapsed ? "Sign out" : undefined}
         >
           <span
             style={{
@@ -440,22 +507,25 @@ export default function Sidebar() {
           >
             <LogoutIcon />
           </span>
-          <span className="text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>
-            {signingOut ? "Signing out..." : "Sign out"}
-          </span>
+          {!collapsed && (
+            <span className="text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>
+              {signingOut ? "Signing out..." : "Sign out"}
+            </span>
+          )}
         </button>
 
-        {/* Version tag */}
-        <p
-          className="text-center mt-3"
-          style={{
-            fontSize: "10px",
-            color: "rgba(255,255,255,0.2)",
-            fontFamily: "monospace",
-          }}
-        >
-          Group 2 · STS
-        </p>
+        {!collapsed && (
+          <p
+            className="text-center mt-3"
+            style={{
+              fontSize: "10px",
+              color: "rgba(255,255,255,0.2)",
+              fontFamily: "monospace",
+            }}
+          >
+            Group 2 · STS
+          </p>
+        )}
       </div>
     </aside>
   );
