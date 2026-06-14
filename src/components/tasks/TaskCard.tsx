@@ -1,79 +1,248 @@
 "use client";
 
-import { Task, TASK_CATEGORIES, PRIORITY_CONFIG } from "@/types/tasks";
+import { Task, PRIORITY_CONFIG, TASK_CATEGORIES } from "@/types/tasks";
 
 type Props = {
   task: Task;
-  onStatusChange: (id: string, status: string) => void;
+  onStatusChange: (id: string, status: Task["status"]) => void;
   onDelete: (id: string) => void;
   onClick: (task: Task) => void;
+  isDragging?: boolean;
 };
+
+function getDueDateBadge(dueDate?: string, status?: string) {
+  if (!dueDate || status === "completed") return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+  const diffMs = due.getTime() - today.getTime();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return {
+      label: `${Math.abs(diffDays)}d overdue`,
+      color: "#B91C1C",
+      bg: "rgba(185,28,28,0.1)",
+    };
+  }
+  if (diffDays === 0) {
+    return { label: "Due today", color: "#B45309", bg: "rgba(180,83,9,0.1)" };
+  }
+  if (diffDays === 1) {
+    return {
+      label: "Due tomorrow",
+      color: "#B45309",
+      bg: "rgba(180,83,9,0.08)",
+    };
+  }
+  if (diffDays <= 3) {
+    return {
+      label: `${diffDays}d left`,
+      color: "#B45309",
+      bg: "rgba(180,83,9,0.06)",
+    };
+  }
+  if (diffDays <= 7) {
+    return {
+      label: `${diffDays}d left`,
+      color: "#166534",
+      bg: "rgba(22,101,52,0.08)",
+    };
+  }
+  return null;
+}
 
 export default function TaskCard({
   task,
   onStatusChange,
   onDelete,
   onClick,
+  isDragging,
 }: Props) {
-  const priority = PRIORITY_CONFIG[task.priority];
-  const category = TASK_CATEGORIES.find((c) => c.id === task.category);
-
-  const isOverdue =
-    task.due_date &&
-    new Date(task.due_date) < new Date() &&
-    task.status !== "completed";
-
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const today = new Date();
-    const tomorrow = new Date();
-    tomorrow.setDate(today.getDate() + 1);
-    if (d.toDateString() === today.toDateString()) return "Today";
-    if (d.toDateString() === tomorrow.toDateString()) return "Tomorrow";
-    return d.toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+  const priority = PRIORITY_CONFIG.find((p) => p.id === task.priority) ?? {
+    id: task.priority,
+    label: task.priority,
+    color: "#999",
   };
+  const category = TASK_CATEGORIES.find((c) => c.id === task.category_id);
+  const dueBadge = getDueDateBadge(task.due_date, task.status);
 
-  const subtaskPct =
-    task.subtask_total > 0
-      ? (task.subtask_completed / task.subtask_total) * 100
-      : 0;
+  const subtaskTotal = task.subtask_count ?? 0;
+  const subtaskDone = task.completed_subtask_count ?? 0;
+  const hasSubtasks = subtaskTotal > 0;
+  const subtaskPct = hasSubtasks
+    ? Math.round((subtaskDone / subtaskTotal) * 100)
+    : 0;
 
   return (
     <div
       onClick={() => onClick(task)}
-      className="group flex flex-col gap-2.5 p-3 rounded-xl cursor-pointer transition-all"
+      draggable
       style={{
         background: "#fff",
         border: "0.5px solid #ebebeb",
-        borderLeft: `2.5px solid ${priority.color}`,
+        borderLeft: `3px solid ${priority?.color ?? "#e5e5e5"}`,
+        borderRadius: "12px",
+        padding: "12px 14px",
+        cursor: "pointer",
+        opacity: isDragging ? 0.4 : 1,
+        transition: "box-shadow 0.15s, opacity 0.15s",
+        userSelect: "none",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLDivElement).style.boxShadow =
+          "0 2px 12px rgba(0,0,0,0.07)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
       }}
     >
-      {/* Title + kebab */}
-      <div className="flex items-start gap-2">
-        <p
-          className="text-xs font-medium flex-1 leading-relaxed"
+      {/* Title row */}
+      <p
+        style={{
+          fontSize: "13px",
+          fontWeight: 500,
+          color: task.status === "completed" ? "#999" : "#1a1a2e",
+          lineHeight: 1.4,
+          textDecoration: task.status === "completed" ? "line-through" : "none",
+          marginBottom: "8px",
+        }}
+      >
+        {task.title}
+      </p>
+
+      {/* Subtask progress bar */}
+      {hasSubtasks && (
+        <div style={{ marginBottom: "8px" }}>
+          <div
+            style={{
+              height: "3px",
+              borderRadius: "2px",
+              background: "#f0eff0",
+              overflow: "hidden",
+              marginBottom: "4px",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                width: `${subtaskPct}%`,
+                borderRadius: "2px",
+                background: subtaskPct === 100 ? "#166534" : "#4f8ef7",
+                transition: "width 0.3s ease",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Tag row */}
+      <div
+        className="flex flex-wrap items-center gap-1.5"
+        style={{ marginBottom: "4px" }}
+      >
+        {/* Category tag */}
+        {category && (
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: 500,
+              padding: "2px 7px",
+              borderRadius: "6px",
+              background: `${category.color}15`,
+              color: category.color,
+            }}
+          >
+            {category.label}
+          </span>
+        )}
+
+        {/* Subtask count chip */}
+        {hasSubtasks && (
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: 500,
+              padding: "2px 7px",
+              borderRadius: "6px",
+              background:
+                subtaskPct === 100
+                  ? "rgba(22,101,52,0.1)"
+                  : "rgba(79,142,247,0.1)",
+              color: subtaskPct === 100 ? "#166534" : "#4f8ef7",
+            }}
+          >
+            {subtaskDone}/{subtaskTotal}
+          </span>
+        )}
+
+        {/* Due date countdown badge */}
+        {dueBadge && (
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: 500,
+              padding: "2px 7px",
+              borderRadius: "6px",
+              background: dueBadge.bg,
+              color: dueBadge.color,
+            }}
+          >
+            {dueBadge.label}
+          </span>
+        )}
+      </div>
+
+      {/* Footer row*/}
+      <div
+        className="flex items-center justify-between"
+        style={{ marginTop: "6px" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Quick status dropdown */}
+        <select
+          value={task.status}
+          onChange={(e) =>
+            onStatusChange(task.id, e.target.value as Task["status"])
+          }
           style={{
-            color: task.status === "completed" ? "#999" : "#1a1a2e",
-            textDecoration:
-              task.status === "completed" ? "line-through" : "none",
+            fontSize: "10px",
+            padding: "2px 6px",
+            borderRadius: "6px",
+            border: "0.5px solid #e5e5e5",
+            background: "#f5f4f0",
+            color: "#555",
+            fontFamily: "inherit",
+            cursor: "pointer",
           }}
         >
-          {task.title}
-        </p>
+          <option value="todo">To Do</option>
+          <option value="in_progress">In Progress</option>
+          <option value="pending_review">Pending Review</option>
+          <option value="completed">Completed</option>
+        </select>
+
+        {/* Delete button */}
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(task.id);
-          }}
-          className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          onClick={() => onDelete(task.id)}
           style={{
             background: "none",
             border: "none",
             cursor: "pointer",
-            color: "#999",
+            color: "#ccc",
             padding: "2px",
+            display: "flex",
+            alignItems: "center",
           }}
+          onMouseEnter={(e) =>
+            ((e.currentTarget as HTMLButtonElement).style.color = "#A32D2D")
+          }
+          onMouseLeave={(e) =>
+            ((e.currentTarget as HTMLButtonElement).style.color = "#ccc")
+          }
         >
           <svg
             width="13"
@@ -90,123 +259,6 @@ export default function TaskCard({
           </svg>
         </button>
       </div>
-
-      {/* Description */}
-      {task.description && (
-        <p
-          className="text-xs leading-relaxed line-clamp-2"
-          style={{ color: "#999" }}
-        >
-          {task.description}
-        </p>
-      )}
-
-      {/* Category tag */}
-      {category && (
-        <div className="flex flex-wrap gap-1">
-          <span
-            className="text-xs px-2 py-0.5 rounded-md font-medium"
-            style={{
-              background: `${category.color}14`,
-              color: category.color,
-            }}
-          >
-            {category.label}
-          </span>
-        </div>
-      )}
-
-      {/* Subtask progress bar */}
-      {task.subtask_total > 0 && (
-        <div className="flex flex-col gap-1">
-          <div
-            className="flex justify-between"
-            style={{ fontSize: "10px", color: "#999" }}
-          >
-            <span>Subtasks</span>
-            <span>
-              {task.subtask_completed}/{task.subtask_total}
-            </span>
-          </div>
-          <div
-            className="rounded-full overflow-hidden"
-            style={{ height: "3px", background: "#f0eff0" }}
-          >
-            <div
-              className="h-full rounded-full"
-              style={{ width: `${subtaskPct}%`, background: "#4f8ef7" }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Footer */}
-      <div className="flex items-center gap-2">
-        {/* Due date */}
-        {task.due_date && (
-          <span
-            className="text-xs flex items-center gap-1"
-            style={{ color: isOverdue ? "#A32D2D" : "#999" }}
-          >
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-            {formatDate(task.due_date)}
-          </span>
-        )}
-
-        <div className="flex-1" />
-
-        {/* Priority badge */}
-        <span
-          className="text-xs flex items-center gap-1 font-medium"
-          style={{ color: priority.color }}
-        >
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            stroke="none"
-          >
-            <path d="M5 3l14 0 0 13-14 0z M5 16l14 0" />
-          </svg>
-          {priority.label.split(" ")[0]}
-        </span>
-      </div>
-
-      {/* Quick status change */}
-      <select
-        value={task.status}
-        onClick={(e) => e.stopPropagation()}
-        onChange={(e) => {
-          e.stopPropagation();
-          onStatusChange(task.id, e.target.value);
-        }}
-        className="text-xs rounded-lg px-2 py-1 outline-none w-full"
-        style={{
-          border: "0.5px solid #ebebeb",
-          background: "#f5f4f0",
-          color: "#666",
-          fontFamily: "inherit",
-          cursor: "pointer",
-        }}
-      >
-        <option value="todo">To Do</option>
-        <option value="in_progress">In Progress</option>
-        <option value="pending_review">Pending Review</option>
-        <option value="completed">Completed</option>
-      </select>
     </div>
   );
 }
