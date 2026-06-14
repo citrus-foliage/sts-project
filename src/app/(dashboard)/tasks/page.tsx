@@ -5,6 +5,7 @@ import { Task, TaskStatus } from "@/types/tasks";
 import KanbanBoard from "@/components/tasks/KanbanBoard";
 import ListView from "@/components/tasks/ListView";
 import TaskForm from "@/components/tasks/TaskForm";
+import TaskDetailModal from "@/components/tasks/TaskDetailModal";
 
 type ViewMode = "board" | "list";
 
@@ -38,7 +39,7 @@ export default function TasksPage() {
     description: string;
     status: TaskStatus;
     priority: string;
-    category: string;
+    category_id: string;
     due_date: string;
   }) => {
     const res = await fetch("/api/tasks", {
@@ -68,11 +69,21 @@ export default function TasksPage() {
   const handleDelete = async (id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    setSelectedTask(null);
   };
 
-  const handleAddFromColumn = (status: TaskStatus) => {
-    setDefaultStatus(status);
-    setShowForm(true);
+  const handleUpdate = async (id: string, updates: Partial<Task>) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+    );
+    if (selectedTask?.id === id) {
+      setSelectedTask((prev) => (prev ? { ...prev, ...updates } : prev));
+    }
+    await fetch(`/api/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
   };
 
   const filteredTasks =
@@ -84,7 +95,7 @@ export default function TasksPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold" style={{ color: "#1a1a2e" }}>
@@ -125,7 +136,7 @@ export default function TasksPage() {
         </button>
       </div>
 
-      {/* ── Toolbar ── */}
+      {/* Toolbar */}
       <div className="flex items-center gap-3">
         {/* View toggle */}
         <div
@@ -218,89 +229,84 @@ export default function TasksPage() {
         )}
       </div>
 
-      {/* ── Add Task Form ── */}
+      {/* Add Task Modal */}
       {showForm && (
-        <div
-          className="rounded-2xl p-5"
-          style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
-        >
-          <p className="text-sm font-medium mb-4" style={{ color: "#1a1a2e" }}>
-            New task
-          </p>
-          <TaskForm
-            defaultStatus={defaultStatus}
-            onSubmit={handleAddTask}
-            onCancel={() => setShowForm(false)}
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setShowForm(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.45)",
+              backdropFilter: "blur(6px)",
+              WebkitBackdropFilter: "blur(6px)",
+              zIndex: 50,
+              animation: "fadeIn 0.2s ease",
+            }}
           />
-        </div>
-      )}
-
-      {/* ── Task Detail Panel ── */}
-      {selectedTask && (
-        <div
-          className="rounded-2xl p-5"
-          style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-medium" style={{ color: "#1a1a2e" }}>
-              {selectedTask.title}
-            </p>
-            <button
-              type="button"
-              onClick={() => setSelectedTask(null)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#999",
-                fontSize: "18px",
-                lineHeight: 1,
-              }}
+          {/* Modal card */}
+          <div
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              zIndex: 51,
+              background: "#fff",
+              borderRadius: "20px",
+              padding: "28px",
+              width: "480px",
+              maxWidth: "92vw",
+              maxHeight: "88vh",
+              overflowY: "auto",
+              boxShadow:
+                "0 32px 80px rgba(0,0,0,0.25), 0 8px 24px rgba(0,0,0,0.15)",
+              animation: "popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
+            }}
+          >
+            <p
+              className="text-sm font-medium mb-4"
+              style={{ color: "#1a1a2e" }}
             >
-              ×
-            </button>
-          </div>
-          {selectedTask.description && (
-            <p className="text-sm" style={{ color: "#666", lineHeight: 1.6 }}>
-              {selectedTask.description}
+              New task
             </p>
-          )}
-          <div className="flex gap-4 mt-3">
-            <span className="text-xs" style={{ color: "#999" }}>
-              Status:{" "}
-              <strong style={{ color: "#1a1a2e" }}>
-                {COLUMN_LABELS[selectedTask.status]}
-              </strong>
-            </span>
-            {selectedTask.due_date && (
-              <span className="text-xs" style={{ color: "#999" }}>
-                Due:{" "}
-                <strong style={{ color: "#1a1a2e" }}>
-                  {new Date(selectedTask.due_date).toLocaleDateString("en-PH", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </strong>
-              </span>
-            )}
+            <TaskForm
+              defaultStatus={defaultStatus}
+              onSubmit={handleAddTask}
+              onCancel={() => setShowForm(false)}
+            />
           </div>
-        </div>
+          <style>{`
+            @keyframes fadeIn {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+            @keyframes popIn {
+              from { opacity: 0; transform: translate(-50%, -48%) scale(0.95); }
+              to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            }
+          `}</style>
+        </>
       )}
 
-      {/* ── Board or List View ── */}
+      {/* Task Detail Modal */}
+      {selectedTask && (
+        <TaskDetailModal
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+        />
+      )}
+
+      {/* Board or List View */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <p style={{ fontSize: "13px", color: "#999" }}>Loading tasks...</p>
         </div>
       ) : view === "board" ? (
-        <KanbanBoard
-          tasks={tasks}
-          onStatusChange={handleStatusChange}
-          onDelete={handleDelete}
-          onTaskClick={setSelectedTask}
-          onAddTask={handleAddFromColumn}
-        />
+        <KanbanBoard tasks={tasks} onRefresh={fetchTasks} />
       ) : (
         <ListView
           tasks={filteredTasks}
@@ -312,10 +318,3 @@ export default function TasksPage() {
     </div>
   );
 }
-
-const COLUMN_LABELS: Record<string, string> = {
-  todo: "To Do",
-  in_progress: "In Progress",
-  pending_review: "Pending Review",
-  completed: "Completed",
-};

@@ -10,7 +10,7 @@ type Props = {
     description: string;
     status: TaskStatus;
     priority: TaskPriority;
-    category: string;
+    category_id: string;
     due_date: string;
   }) => Promise<void>;
   onCancel: () => void;
@@ -25,7 +25,7 @@ export default function TaskForm({
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>(defaultStatus);
   const [priority, setPriority] = useState<TaskPriority>("medium");
-  const [category, setCategory] = useState("");
+  const [categoryId, setCategoryId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -43,7 +43,7 @@ export default function TaskForm({
         description,
         status,
         priority,
-        category,
+        category_id: categoryId,
         due_date: dueDate,
       });
     } catch (err) {
@@ -135,8 +135,8 @@ export default function TaskForm({
             Category
           </label>
           <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
             className="px-3 py-2.5 rounded-xl text-sm outline-none"
             style={inputStyle}
           >

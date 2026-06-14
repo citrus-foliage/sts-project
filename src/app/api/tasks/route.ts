@@ -22,7 +22,6 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Fetch subtasks separately
   const taskIds = (data ?? []).map((t) => t.id);
   let subtasks: Record<string, unknown[]> = {};
 
@@ -59,13 +58,12 @@ export async function POST(req: NextRequest) {
 
   const userId = session.user.email;
   const body = await req.json();
-  const { title, description, status, priority, category, due_date } = body;
+  const { title, description, status, priority, category_id, due_date } = body;
 
   if (!title) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
 
-  // Get max position for the status column
   const { data: existing } = await supabaseAdmin
     .from("tasks")
     .select("position")
@@ -85,7 +83,7 @@ export async function POST(req: NextRequest) {
       description: description ?? null,
       status: status ?? "todo",
       priority: priority ?? "medium",
-      category: category ?? null,
+      category_id: category_id ?? null,
       due_date: due_date ?? null,
       position,
     })
