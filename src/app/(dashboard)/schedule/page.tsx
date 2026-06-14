@@ -156,7 +156,7 @@ export default function SchedulePage() {
     { label: "Low priority tasks", count: null, color: "#166534" },
     { label: "Completed tasks", count: null, color: "#6B7280" },
     { label: "Google Calendar", count: sources.google, color: "#4f8ef7" },
-    { label: "Canvas deadlines", count: sources.canvas, color: "#E24B4A" },
+    { label: "Canvas Calendar", count: sources.canvas, color: "#E24B4A" },
     { label: "PH Public Holidays", count: sources.holidays, color: "#7C3AED" },
   ];
 

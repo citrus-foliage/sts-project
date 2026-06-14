@@ -13,7 +13,6 @@ export async function GET() {
 
   const userId = session.user.email;
 
-  // Get stored Canvas iCal URL
   const { data: settings } = await supabaseAdmin
     .from("calendar_settings")
     .select("canvas_ical_url")
@@ -25,7 +24,6 @@ export async function GET() {
   }
 
   try {
-    // Fetch the iCal file
     const icalRes = await fetch(settings.canvas_ical_url);
     if (!icalRes.ok) {
       return NextResponse.json(
@@ -49,13 +47,20 @@ export async function GET() {
     const events = vevents
       .map((vevent: ICAL.Component) => {
         const event = new ICAL.Event(vevent);
-        const startDate = event.startDate?.toJSDate();
-        const endDate = event.endDate?.toJSDate();
+        const startTime = event.startDate;
+
+        // Use ICAL.Time year/month/day directly to avoid UTC timezone shift
+        const dateStr = startTime
+          ? `${startTime.year}-${String(startTime.month).padStart(2, "0")}-${String(startTime.day).padStart(2, "0")}`
+          : undefined;
+
         return {
           id: `canvas_${event.uid}`,
           title: event.summary ?? "(No title)",
-          start: startDate?.toISOString(),
-          end: endDate?.toISOString(),
+          // Single day only — no `end` property so FullCalendar
+          // Renders it as a single pill on the due date, not spanning
+          start: dateStr,
+          allDay: true,
           source: "canvas",
           backgroundColor: "#E24B4A",
           borderColor: "#E24B4A",
@@ -64,9 +69,12 @@ export async function GET() {
       })
       .filter((e: { start?: string }) => {
         if (!e.start) return false;
-        const d = new Date(e.start);
-        return d >= now && d <= threeMonthsLater;
-      });
+        // String comparison is timezone-safe for YYYY-MM-DD format
+        const nowStr = now.toISOString().slice(0, 10);
+        const laterStr = threeMonthsLater.toISOString().slice(0, 10);
+        return e.start >= nowStr && e.start <= laterStr;
+      })
+      .sort((a, b) => (a.start ?? "").localeCompare(b.start ?? ""));
 
     return NextResponse.json({ events, hasUrl: true });
   } catch (err) {
