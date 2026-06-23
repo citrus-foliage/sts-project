@@ -2,31 +2,60 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { ForumPost, ForumFlair, FLAIR_CONFIG } from "@/types/forum";
 import PostCard from "@/components/forum/PostCard";
-import PostForm from "@/components/forum/PostForm";
 import ForumSidebar from "@/components/forum/ForumSidebar";
 import RecentlyViewed from "@/components/forum/RecentlyViewed";
+import FeatureHidden from "@/components/layout/FeatureHidden";
 
 type SortMode = "new" | "hot" | "top";
 
 export default function ForumPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
   const [sort, setSort] = useState<SortMode>("new");
   const [flairFilter, setFlairFilter] = useState<ForumFlair | "all">("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [mutedWords, setMutedWords] = useState<string[]>([]);
+  const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [showFeature, setShowFeature] = useState(true);
+  const [checkingFeature, setCheckingFeature] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.settings?.show_forum === false) setShowFeature(false);
+      })
+      .catch(() => {})
+      .finally(() => setCheckingFeature(false));
+  }, []);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/settings/muted-words").then((r) => r.json()),
+      fetch("/api/forum/hide").then((r) => r.json()),
+    ])
+      .then(([mutedData, hiddenData]) => {
+        setMutedWords(mutedData.muted_words ?? []);
+        const ids = new Set<string>(
+          (hiddenData.hidden ?? []).map((h: { post_id: string }) => h.post_id),
+        );
+        setHiddenPostIds(ids);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      setDebouncedSearch(value);
-    }, 300);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(value), 300);
   };
 
   const clearFilters = () => {
@@ -58,24 +87,6 @@ export default function ForumPage() {
     fetchPosts();
   }, [fetchPosts]);
 
-  const handleCreatePost = async (postData: {
-    title: string;
-    post_body: string;
-    flair: ForumFlair;
-    is_anonymous: boolean;
-    image_url?: string;
-  }) => {
-    const res = await fetch("/api/forum/posts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(postData),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-    setShowForm(false);
-    fetchPosts();
-  };
-
   const handleUpvote = async (postId: string) => {
     setPosts((prev) =>
       prev.map((p) =>
@@ -105,23 +116,34 @@ export default function ForumPage() {
     await fetch(`/api/forum/posts/${postId}`, { method: "DELETE" });
   };
 
-  const userId = session?.user?.email ?? "";
+  const handleHide = (postId: string) => {
+    setHiddenPostIds((prev) => new Set([...prev, postId]));
+  };
 
+  const userId = session?.user?.email ?? "";
   const flairs = Object.entries(FLAIR_CONFIG) as [
     ForumFlair,
     { label: string; color: string; bg: string },
   ][];
+  const visiblePosts = posts.filter((p) => !hiddenPostIds.has(p.id));
+
+  if (checkingFeature) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p style={{ fontSize: "13px", color: "#999" }}>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!showFeature) return <FeatureHidden featureName="Discussion Hub" />;
 
   return (
     <div className="flex gap-5 h-full">
-      {/* Left sidebar — community context */}
       <div className="flex-shrink-0" style={{ width: "220px" }}>
         <ForumSidebar />
       </div>
 
-      {/* Center — posts feed */}
       <div className="flex flex-col gap-4 flex-1 min-w-0">
-        {/* Header */}
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-xl font-semibold" style={{ color: "#1a1a2e" }}>
@@ -133,7 +155,7 @@ export default function ForumPage() {
           </div>
           <button
             type="button"
-            onClick={() => setShowForm(true)}
+            onClick={() => router.push("/forum/create")}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white flex-shrink-0"
             style={{
               background: "#1a1a2e",
@@ -157,20 +179,6 @@ export default function ForumPage() {
           </button>
         </div>
 
-        {/* Post form */}
-        {showForm && (
-          <div
-            className="rounded-2xl p-5"
-            style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
-          >
-            <PostForm
-              onSubmit={handleCreatePost}
-              onCancel={() => setShowForm(false)}
-            />
-          </div>
-        )}
-
-        {/* Search bar */}
         <div
           className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
           style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
@@ -209,7 +217,6 @@ export default function ForumPage() {
                 cursor: "pointer",
                 color: "#999",
                 padding: "2px",
-                lineHeight: 1,
               }}
             >
               <svg
@@ -227,7 +234,6 @@ export default function ForumPage() {
           )}
         </div>
 
-        {/* Sort + Flair filter */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
             <div
@@ -252,7 +258,6 @@ export default function ForumPage() {
                 </button>
               ))}
             </div>
-
             {hasActiveFilters && (
               <button
                 type="button"
@@ -282,7 +287,6 @@ export default function ForumPage() {
             )}
           </div>
 
-          {/* Flair filter pills */}
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
@@ -307,9 +311,7 @@ export default function ForumPage() {
                 style={{
                   background: flairFilter === f ? config.bg : "#fff",
                   color: flairFilter === f ? config.color : "#666",
-                  border: `0.5px solid ${
-                    flairFilter === f ? config.color + "44" : "#ebebeb"
-                  }`,
+                  border: `0.5px solid ${flairFilter === f ? config.color + "44" : "#ebebeb"}`,
                   cursor: "pointer",
                   fontFamily: "inherit",
                   transition: "all 0.15s",
@@ -321,7 +323,6 @@ export default function ForumPage() {
           </div>
         </div>
 
-        {/* Active filter indicator */}
         {hasActiveFilters && (
           <div
             className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
@@ -345,8 +346,7 @@ export default function ForumPage() {
             {debouncedSearch.trim() && (
               <span>
                 {" "}
-                for &quot;
-                <strong>{debouncedSearch.trim()}</strong>&quot;
+                for &quot;<strong>{debouncedSearch.trim()}</strong>&quot;
               </span>
             )}
             {flairFilter !== "all" && (
@@ -356,17 +356,17 @@ export default function ForumPage() {
               </span>
             )}
             <span style={{ color: "#4f8ef7" }}>
-              · {posts.length} {posts.length === 1 ? "result" : "results"}
+              · {visiblePosts.length}{" "}
+              {visiblePosts.length === 1 ? "result" : "results"}
             </span>
           </div>
         )}
 
-        {/* Posts */}
         {loading ? (
           <div className="flex items-center justify-center h-48">
             <p style={{ fontSize: "13px", color: "#999" }}>Loading posts...</p>
           </div>
-        ) : posts.length === 0 ? (
+        ) : visiblePosts.length === 0 ? (
           <div
             className="flex flex-col items-center justify-center gap-3 rounded-2xl py-16"
             style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
@@ -386,7 +386,7 @@ export default function ForumPage() {
                 ? "No posts match your search or filter"
                 : "No posts yet — be the first to share something"}
             </p>
-            {hasActiveFilters && (
+            {hasActiveFilters ? (
               <button
                 type="button"
                 onClick={clearFilters}
@@ -401,11 +401,25 @@ export default function ForumPage() {
               >
                 Clear filters
               </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => router.push("/forum/create")}
+                className="text-xs px-3 py-1.5 rounded-lg text-white"
+                style={{
+                  background: "#1a1a2e",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Create the first post
+              </button>
             )}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {posts.map((post) => (
+            {visiblePosts.map((post) => (
               <PostCard
                 key={post.id}
                 post={post}
@@ -413,13 +427,14 @@ export default function ForumPage() {
                 onUpvote={handleUpvote}
                 onFlag={handleFlag}
                 onDelete={handleDelete}
+                onHide={handleHide}
+                mutedWords={mutedWords}
               />
             ))}
           </div>
         )}
       </div>
 
-      {/* ── Right sidebar — recently viewed ── */}
       <div className="flex-shrink-0" style={{ width: "220px" }}>
         <RecentlyViewed />
       </div>

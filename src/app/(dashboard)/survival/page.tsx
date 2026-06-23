@@ -1,6 +1,36 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import DailyBudgetWidget from "@/components/budget/DailyBudgetWidget";
+import FeatureHidden from "@/components/layout/FeatureHidden";
 
 export default function SurvivalPage() {
+  // Feature visibility check
+  const [showFeature, setShowFeature] = useState(true);
+  const [checkingFeature, setCheckingFeature] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.settings?.show_survival === false) setShowFeature(false);
+      })
+      .catch(() => {})
+      .finally(() => setCheckingFeature(false));
+  }, []);
+
+  if (checkingFeature) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p style={{ fontSize: "13px", color: "#999" }}>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!showFeature) {
+    return <FeatureHidden featureName="Daily Budget" />;
+  }
+
   return (
     <div className="flex flex-col gap-5 max-w-lg">
       {/* Page header */}

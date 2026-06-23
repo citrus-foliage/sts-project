@@ -6,6 +6,7 @@ import KanbanBoard from "@/components/tasks/KanbanBoard";
 import ListView from "@/components/tasks/ListView";
 import TaskForm from "@/components/tasks/TaskForm";
 import TaskDetailModal from "@/components/tasks/TaskDetailModal";
+import FeatureHidden from "@/components/layout/FeatureHidden";
 
 type ViewMode = "board" | "list";
 
@@ -17,6 +18,20 @@ export default function TasksPage() {
   const [defaultStatus, setDefaultStatus] = useState<TaskStatus>("todo");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [filter, setFilter] = useState<TaskStatus | "all">("all");
+
+  // Feature visibility check
+  const [showFeature, setShowFeature] = useState(true);
+  const [checkingFeature, setCheckingFeature] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.settings?.show_tasks === false) setShowFeature(false);
+      })
+      .catch(() => {})
+      .finally(() => setCheckingFeature(false));
+  }, []);
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -92,6 +107,18 @@ export default function TasksPage() {
   const pendingCount = tasks.filter((t) => t.status !== "completed").length;
 
   const completedCount = tasks.filter((t) => t.status === "completed").length;
+
+  if (checkingFeature) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p style={{ fontSize: "13px", color: "#999" }}>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!showFeature) {
+    return <FeatureHidden featureName="Task Manager" />;
+  }
 
   return (
     <div className="flex flex-col gap-4">

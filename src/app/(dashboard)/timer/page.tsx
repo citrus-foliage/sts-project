@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import TimerSettings from "@/components/timer/TimerSettings";
+import FeatureHidden from "@/components/layout/FeatureHidden";
 
 type SessionType = "focus" | "short_break" | "long_break";
 
@@ -61,11 +62,13 @@ export default function TimerPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [sessionCount, setSessionCount] = useState(0);
   const [currentSessionStarted, setCurrentSessionStarted] = useState(false);
+  const [showFeature, setShowFeature] = useState(true);
+  const [checkingFeature, setCheckingFeature] = useState(true);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
 
-  // ── Fetch initial data ──
+  // Fetch initial data
   const fetchData = useCallback(async () => {
     try {
       const [settingsRes, statsRes, sessionsRes] = await Promise.all([
@@ -95,7 +98,17 @@ export default function TimerPage() {
     fetchData();
   }, [fetchData]);
 
-  // ── Timer logic ──
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.settings?.show_timer === false) setShowFeature(false);
+      })
+      .catch(() => {})
+      .finally(() => setCheckingFeature(false));
+  }, []);
+
+  // Timer logic
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
@@ -161,7 +174,6 @@ export default function TimerPage() {
         const newCount = sessionCount + 1;
         setSessionCount(newCount);
 
-        // Determine next session type
         const nextType =
           newCount % settings.sessions_before_long_break === 0
             ? "long_break"
@@ -255,7 +267,7 @@ export default function TimerPage() {
     setShowSettings(false);
   };
 
-  // ── Computed display values ──
+  // Computed display values
   const totalDuration =
     sessionType === "focus"
       ? settings.focus_duration * 60
@@ -279,6 +291,12 @@ export default function TimerPage() {
   );
 
   const circumference = 2 * Math.PI * 90;
+
+  if (checkingFeature) return null;
+
+  if (!showFeature) {
+    return <FeatureHidden featureName="Focus Timer" />;
+  }
 
   if (loading) {
     return (
@@ -307,7 +325,7 @@ export default function TimerPage() {
 
   return (
     <div className="flex flex-col gap-5 max-w-2xl mx-auto">
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold" style={{ color: "#1a1a2e" }}>
@@ -344,7 +362,7 @@ export default function TimerPage() {
         </button>
       </div>
 
-      {/* ── Session type tabs ── */}
+      {/* Session type tabs */}
       <div
         className="flex rounded-2xl p-1 gap-1"
         style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
@@ -379,7 +397,7 @@ export default function TimerPage() {
         ))}
       </div>
 
-      {/* ── Timer display ── */}
+      {/* Timer display */}
       <div
         className="rounded-2xl flex flex-col items-center gap-6 py-10 px-6"
         style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
@@ -581,7 +599,7 @@ export default function TimerPage() {
         </p>
       </div>
 
-      {/* ── Stats row ── */}
+      {/* Stats row */}
       <div
         className="grid gap-3"
         style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
@@ -685,7 +703,7 @@ export default function TimerPage() {
         ))}
       </div>
 
-      {/* ── Today's session log ── */}
+      {/* Today's session log */}
       {todaySessions.length > 0 && (
         <div
           className="rounded-2xl overflow-hidden"

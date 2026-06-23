@@ -6,6 +6,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import CalendarSetup from "@/components/schedule/CalendarSetup";
+import FeatureHidden from "@/components/layout/FeatureHidden";
 
 type CalendarEvent = {
   id: string;
@@ -48,15 +49,27 @@ export default function SchedulePage() {
   const [showSetup, setShowSetup] = useState(false);
   const [googleError, setGoogleError] = useState("");
 
+  // Feature visibility check
+  const [showFeature, setShowFeature] = useState(true);
+  const [checkingFeature, setCheckingFeature] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.settings?.show_schedule === false) setShowFeature(false);
+      })
+      .catch(() => {})
+      .finally(() => setCheckingFeature(false));
+  }, []);
+
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     try {
-      // Check Canvas connection status
       const canvasRes = await fetch("/api/schedule/canvas");
       const canvasData = await canvasRes.json();
       setHasCanvasUrl(canvasData.hasUrl ?? false);
 
-      // Fetch Google Calendar events directly
       let googleEvts: CalendarEvent[] = [];
       const googleRes = await fetch("/api/schedule/google-events");
       if (googleRes.ok) {
@@ -68,7 +81,6 @@ export default function SchedulePage() {
         setGoogleError(err.error ?? "Google Calendar unavailable");
       }
 
-      // Fetch tasks with due dates
       const tasksRes = await fetch("/api/tasks");
       const tasksData = await tasksRes.json();
       const taskEvents: CalendarEvent[] = (tasksData.tasks ?? [])
@@ -78,6 +90,7 @@ export default function SchedulePage() {
             id: string;
             title: string;
             due_date: string;
+            due_time?: string;
             status: string;
             priority: string;
           }) => {
@@ -90,11 +103,15 @@ export default function SchedulePage() {
             const color = isCompleted
               ? "#6B7280"
               : (priorityColors[task.priority] ?? "#555");
+            const taskStart = task.due_time
+              ? `${task.due_date}T${task.due_time}`
+              : `${task.due_date}T23:59:00`;
             return {
               id: `task_${task.id}`,
               title: task.title,
-              start: task.due_date,
-              allDay: true,
+              start: taskStart,
+              end: taskStart,
+              allDay: false,
               source: "task" as const,
               completed: isCompleted,
               backgroundColor: color,
@@ -112,7 +129,6 @@ export default function SchedulePage() {
 
       const canvasEvts: CalendarEvent[] = canvasData.events ?? [];
 
-      // Fetch Philippine holidays
       let holidayEvts: CalendarEvent[] = [];
       try {
         const holidaysRes = await fetch("/api/schedule/holidays");
@@ -160,9 +176,21 @@ export default function SchedulePage() {
     { label: "PH Public Holidays", count: sources.holidays, color: "#7C3AED" },
   ];
 
+  if (checkingFeature) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p style={{ fontSize: "13px", color: "#999" }}>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!showFeature) {
+    return <FeatureHidden featureName="Schedule" />;
+  }
+
   return (
     <div className="flex gap-5 h-full">
-      {/* ── Main calendar ── */}
+      {/* Main calendar */}
       <div className="flex flex-col gap-4 flex-1 min-w-0">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -299,7 +327,7 @@ export default function SchedulePage() {
         </div>
       </div>
 
-      {/* ── Right sidebar ── */}
+      {/* Right sidebar */}
       <div
         className="flex-shrink-0 flex flex-col gap-4"
         style={{ width: "240px" }}

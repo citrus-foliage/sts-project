@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -247,11 +247,38 @@ const bottomNav = [
   { label: "Settings", href: "/settings", icon: <SettingsIcon /> },
 ];
 
+const FEATURE_KEYS: Record<string, string> = {
+  "/tasks": "show_tasks",
+  "/budget": "show_budget",
+  "/survival": "show_survival",
+  "/schedule": "show_schedule",
+  "/timer": "show_timer",
+  "/forum": "show_forum",
+  "/resources": "show_resources",
+};
+
 export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebar_collapsed");
+    if (saved === "true") setCollapsed(true);
+  }, []);
+  const [featureSettings, setFeatureSettings] = useState<
+    Record<string, boolean>
+  >({});
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.settings) setFeatureSettings(d.settings);
+      })
+      .catch(() => {});
+  }, []);
 
   const isActive = (href: string) => pathname === href;
 
@@ -324,7 +351,11 @@ export default function Sidebar() {
           {/* Panel toggle — sole element when collapsed so it centers naturally */}
           <button
             type="button"
-            onClick={() => setCollapsed((prev) => !prev)}
+            onClick={() => {
+              const next = !collapsed;
+              setCollapsed(next);
+              localStorage.setItem("sidebar_collapsed", String(next));
+            }}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             style={{
               background: "transparent",
@@ -403,58 +434,64 @@ export default function Sidebar() {
                 {group.label}
               </p>
             )}
-            {group.items.map((item) => {
-              const active = isActive(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg mb-0.5 relative transition-colors`}
-                  style={{
-                    background: active
-                      ? "rgba(79,142,247,0.15)"
-                      : "transparent",
-                    textDecoration: "none",
-                  }}
-                  title={collapsed ? item.label : undefined}
-                >
-                  {active && (
-                    <span
-                      className="absolute left-0 rounded-r"
-                      style={{
-                        width: "3px",
-                        height: "16px",
-                        background: "#4f8ef7",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                      }}
-                    />
-                  )}
-                  <span
+            {group.items
+              .filter((item) => {
+                const key = FEATURE_KEYS[item.href];
+                if (!key) return true;
+                return featureSettings[key] !== false;
+              })
+              .map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg mb-0.5 relative transition-colors`}
                     style={{
-                      color: active ? "#4f8ef7" : "rgba(255,255,255,0.35)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "18px",
-                      flexShrink: 0,
+                      background: active
+                        ? "rgba(79,142,247,0.15)"
+                        : "transparent",
+                      textDecoration: "none",
                     }}
+                    title={collapsed ? item.label : undefined}
                   >
-                    {item.icon}
-                  </span>
-                  {!collapsed && (
+                    {active && (
+                      <span
+                        className="absolute left-0 rounded-r"
+                        style={{
+                          width: "3px",
+                          height: "16px",
+                          background: "#4f8ef7",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                        }}
+                      />
+                    )}
                     <span
-                      className="text-sm flex-1"
                       style={{
-                        color: active ? "#e8e8ec" : "rgba(255,255,255,0.55)",
+                        color: active ? "#4f8ef7" : "rgba(255,255,255,0.35)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: "18px",
+                        flexShrink: 0,
                       }}
                     >
-                      {item.label}
+                      {item.icon}
                     </span>
-                  )}
-                </Link>
-              );
-            })}
+                    {!collapsed && (
+                      <span
+                        className="text-sm flex-1"
+                        style={{
+                          color: active ? "#e8e8ec" : "rgba(255,255,255,0.55)",
+                        }}
+                      >
+                        {item.label}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
             {gi < navigation.length - 1 && group.label && (
               <div
                 className="mx-2 mt-2"

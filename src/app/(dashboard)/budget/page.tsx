@@ -5,6 +5,7 @@ import BudgetSetup from "@/components/budget/BudgetSetup";
 import CategoryList from "@/components/budget/CategoryList";
 import DailyBudgetWidget from "@/components/budget/DailyBudgetWidget";
 import TransactionLog from "@/components/budget/TransactionLog";
+import FeatureHidden from "@/components/layout/FeatureHidden";
 
 type Category = {
   id: string;
@@ -37,6 +38,20 @@ export default function BudgetPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Feature visibility check
+  const [showFeature, setShowFeature] = useState(true);
+  const [checkingFeature, setCheckingFeature] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.settings?.show_budget === false) setShowFeature(false);
+      })
+      .catch(() => {})
+      .finally(() => setCheckingFeature(false));
+  }, []);
 
   const fetchPlan = useCallback(async () => {
     try {
@@ -82,6 +97,19 @@ export default function BudgetPage() {
     year: "numeric",
   });
 
+  // Block render until feature visibility is confirmed
+  if (checkingFeature) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p style={{ fontSize: "13px", color: "#999" }}>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!showFeature) {
+    return <FeatureHidden featureName="Budget Planner" />;
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -112,7 +140,7 @@ export default function BudgetPage() {
   // Plan exists — show full budget planner
   return (
     <div className="flex flex-col gap-4 h-full">
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs" style={{ color: "#999" }}>
@@ -138,7 +166,7 @@ export default function BudgetPage() {
         </button>
       </div>
 
-      {/* ── Split layout ── */}
+      {/* Split layout */}
       <div
         className="flex gap-4 flex-1 rounded-2xl overflow-hidden"
         style={{
