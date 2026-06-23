@@ -4,37 +4,47 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ForumFlair, FLAIR_CONFIG } from "@/types/forum";
 
-type RecentPost = {
-  id: string;
-  title: string;
-  flair: ForumFlair;
-};
-
-type Props = {
-  excludePostId?: string;
-};
+type RecentPost = { id: string; title: string; flair: ForumFlair };
+type Props = { excludePostId?: string };
 
 export default function RecentlyViewed({ excludePostId }: Props) {
   const router = useRouter();
   const [recentlyViewed, setRecentlyViewed] = useState<RecentPost[]>([]);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("slm_recently_viewed");
-      const items: RecentPost[] = stored ? JSON.parse(stored) : [];
-      const filtered = excludePostId
-        ? items.filter((p) => p.id !== excludePostId)
-        : items;
-      setRecentlyViewed(filtered.slice(0, 7));
-    } catch {
-      // localStorage unavailable
-    }
+    const load = async () => {
+      try {
+        const hiddenRes = await fetch("/api/forum/hide");
+        const hiddenData = await hiddenRes.json();
+        const hiddenIds = new Set<string>(
+          (hiddenData.hidden ?? []).map((h: { post_id: string }) => h.post_id),
+        );
+        const stored = localStorage.getItem("slm_recently_viewed");
+        const items: RecentPost[] = stored ? JSON.parse(stored) : [];
+        setRecentlyViewed(
+          items
+            .filter((p) => p.id !== excludePostId)
+            .filter((p) => !hiddenIds.has(p.id))
+            .slice(0, 7),
+        );
+      } catch {
+        try {
+          const stored = localStorage.getItem("slm_recently_viewed");
+          const items: RecentPost[] = stored ? JSON.parse(stored) : [];
+          setRecentlyViewed(
+            items.filter((p) => p.id !== excludePostId).slice(0, 7),
+          );
+        } catch {
+          /* unavailable */
+        }
+      }
+    };
+    load();
   }, [excludePostId]);
 
   const handleClear = () => {
     try {
       if (excludePostId) {
-        // On post detail page — keep only the current post in storage
         const stored = localStorage.getItem("slm_recently_viewed");
         if (stored) {
           const items: RecentPost[] = JSON.parse(stored);
@@ -45,7 +55,6 @@ export default function RecentlyViewed({ excludePostId }: Props) {
           );
         }
       } else {
-        // On feed page — clear everything
         localStorage.removeItem("slm_recently_viewed");
       }
       setRecentlyViewed([]);
@@ -59,7 +68,6 @@ export default function RecentlyViewed({ excludePostId }: Props) {
       className="rounded-2xl overflow-hidden"
       style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
     >
-      {/* Header */}
       <div
         className="flex items-center justify-between px-4 py-3"
         style={{ borderBottom: "0.5px solid #ebebeb" }}
@@ -86,7 +94,6 @@ export default function RecentlyViewed({ excludePostId }: Props) {
         )}
       </div>
 
-      {/* Empty state */}
       {recentlyViewed.length === 0 ? (
         <div className="px-4 py-5 flex flex-col items-center gap-2">
           <svg
@@ -105,10 +112,13 @@ export default function RecentlyViewed({ excludePostId }: Props) {
           </p>
         </div>
       ) : (
-        /* Post list */
         <div className="flex flex-col">
           {recentlyViewed.map((p, i) => {
-            const flairConfig = FLAIR_CONFIG[p.flair];
+            const flairConfig = FLAIR_CONFIG[p.flair] ?? {
+              label: p.flair,
+              color: "#999",
+              bg: "#f5f4f0",
+            };
             return (
               <button
                 key={p.id}
@@ -128,7 +138,6 @@ export default function RecentlyViewed({ excludePostId }: Props) {
                   display: "flex",
                   flexDirection: "column",
                   gap: "5px",
-                  transition: "background 0.1s",
                 }}
                 onMouseEnter={(e) =>
                   ((e.currentTarget as HTMLButtonElement).style.background =
@@ -139,7 +148,6 @@ export default function RecentlyViewed({ excludePostId }: Props) {
                     "transparent")
                 }
               >
-                {/* Flair pill */}
                 <span
                   style={{
                     fontSize: "10px",
@@ -153,7 +161,6 @@ export default function RecentlyViewed({ excludePostId }: Props) {
                 >
                   {flairConfig.label}
                 </span>
-                {/* Title */}
                 <span
                   style={{
                     fontSize: "12px",

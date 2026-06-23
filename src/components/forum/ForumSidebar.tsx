@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { FLAIR_CONFIG, FORUM_RULES, ForumFlair } from "@/types/forum";
 
 export default function ForumSidebar() {
   const [showRules, setShowRules] = useState(false);
+  const router = useRouter();
 
   const flairs = Object.entries(FLAIR_CONFIG) as [
     ForumFlair,
@@ -115,6 +117,57 @@ export default function ForumSidebar() {
           rules.
         </p>
       </div>
+
+      {/* Activity link */}
+      <button
+        type="button"
+        onClick={() => router.push("/forum/activity")}
+        className="rounded-2xl p-4 flex items-center gap-3 text-left w-full"
+        style={{
+          background: "#fff",
+          border: "0.5px solid #ebebeb",
+          cursor: "pointer",
+          fontFamily: "inherit",
+          transition: "background 0.15s",
+        }}
+        onMouseEnter={(e) =>
+          ((e.currentTarget as HTMLButtonElement).style.background = "#f5f4f0")
+        }
+        onMouseLeave={(e) =>
+          ((e.currentTarget as HTMLButtonElement).style.background = "#fff")
+        }
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#4f8ef7"
+          strokeWidth="2"
+          style={{ flexShrink: 0 }}
+        >
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+        </svg>
+        <div>
+          <p className="text-xs font-medium" style={{ color: "#1a1a2e" }}>
+            Your activity
+          </p>
+          <p className="text-xs" style={{ color: "#999", marginTop: "1px" }}>
+            Saved and hidden posts
+          </p>
+        </div>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#ccc"
+          strokeWidth="2"
+          style={{ marginLeft: "auto", flexShrink: 0 }}
+        >
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </button>
     </div>
   );
 }
