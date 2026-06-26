@@ -35,6 +35,14 @@ export default function SettingsPage() {
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<Tab>("general");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [savedSettings, setSavedSettings] =
     useState<UserSettings>(DEFAULT_SETTINGS);
@@ -292,13 +300,16 @@ export default function SettingsPage() {
     noBorder?: boolean;
   }) => (
     <div
-      className="flex items-center"
       style={{
         padding: "18px 0",
         borderBottom: noBorder ? "none" : "0.5px solid #f5f4f0",
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        alignItems: isMobile ? "flex-start" : "center",
+        gap: isMobile ? "10px" : "0",
       }}
     >
-      <div style={{ width: "200px", flexShrink: 0 }}>
+      <div style={{ width: isMobile ? "100%" : "200px", flexShrink: 0 }}>
         <p style={{ fontSize: "13px", color: "#1a1a2e", fontWeight: 500 }}>
           {label}
         </p>
@@ -315,7 +326,7 @@ export default function SettingsPage() {
           </p>
         )}
       </div>
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, width: isMobile ? "100%" : undefined }}>
         {value && (
           <div style={{ fontSize: "13px", color: "#555" }}>{value}</div>
         )}
@@ -423,8 +434,8 @@ export default function SettingsPage() {
               zIndex: 51,
               background: "#fff",
               borderRadius: "16px",
-              padding: "28px 32px",
-              width: "380px",
+              padding: isMobile ? "24px 20px" : "28px 32px",
+              width: "min(380px, calc(100vw - 32px))",
               boxShadow: "0 8px 40px rgba(0,0,0,0.15)",
             }}
           >
@@ -556,6 +567,9 @@ export default function SettingsPage() {
         style={{
           borderBottom: "0.5px solid #ebebeb",
           marginBottom: "24px",
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
         }}
       >
         {tabs.map((tab) => (
@@ -564,7 +578,7 @@ export default function SettingsPage() {
             type="button"
             onClick={() => setActiveTab(tab.id)}
             style={{
-              padding: "8px 18px",
+              padding: isMobile ? "8px 12px" : "8px 18px",
               border: "none",
               background: "transparent",
               fontSize: "13px",
@@ -578,6 +592,8 @@ export default function SettingsPage() {
                   : "2px solid transparent",
               marginBottom: "-1px",
               transition: "all 0.15s",
+              whiteSpace: "nowrap",
+              flexShrink: 0,
             }}
           >
             {tab.label}
@@ -767,24 +783,19 @@ export default function SettingsPage() {
                 borderBottom: "0.5px solid #f5f4f0",
               }}
             >
-              <div className="flex items-center">
-                <div style={{ width: "200px", flexShrink: 0 }}>
-                  <p
-                    style={{
-                      fontSize: "13px",
-                      color: "#1a1a2e",
-                      fontWeight: 500,
-                    }}
-                  >
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: isMobile ? "column" : "row",
+                  alignItems: isMobile ? "flex-start" : "center",
+                  gap: isMobile ? "10px" : "0",
+                }}
+              >
+                <div style={{ width: isMobile ? "100%" : "200px", flexShrink: 0 }}>
+                  <p style={{ fontSize: "13px", color: "#1a1a2e", fontWeight: 500 }}>
                     Canvas Instructure
                   </p>
-                  <p
-                    style={{
-                      fontSize: "11px",
-                      color: "#999",
-                      marginTop: "2px",
-                    }}
-                  >
+                  <p style={{ fontSize: "11px", color: "#999", marginTop: "2px" }}>
                     {calendarSettings.canvas_ical_url
                       ? "iCal feed connected — deadlines sync automatically"
                       : "Not connected — paste your iCal URL to import deadlines"}
@@ -793,17 +804,8 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-2 flex-1">
                   {calendarSettings.canvas_ical_url && (
                     <div className="flex items-center gap-2">
-                      <div
-                        style={{
-                          width: "8px",
-                          height: "8px",
-                          borderRadius: "50%",
-                          background: "#639922",
-                        }}
-                      />
-                      <span style={{ fontSize: "13px", color: "#639922" }}>
-                        Connected
-                      </span>
+                      <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#639922" }} />
+                      <span style={{ fontSize: "13px", color: "#639922" }}>Connected</span>
                     </div>
                   )}
                 </div>
@@ -851,7 +853,7 @@ export default function SettingsPage() {
               {showCanvasForm && !calendarSettings.canvas_ical_url && (
                 <div
                   className="flex flex-col gap-2 mt-3"
-                  style={{ marginLeft: "200px" }}
+                  style={{ marginLeft: isMobile ? "0" : "200px" }}
                 >
                   <input
                     type="url"

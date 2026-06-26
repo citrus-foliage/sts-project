@@ -126,7 +126,7 @@ export default function TasksPage() {
       </div>
 
       {/* ── Toolbar ── */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         {/* View toggle */}
         <div
           className="flex rounded-xl p-1 gap-1"
@@ -182,7 +182,7 @@ export default function TasksPage() {
 
         {/* Filter — list view only */}
         {view === "list" && (
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             {(
               [
                 "all",

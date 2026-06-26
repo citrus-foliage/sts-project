@@ -47,6 +47,15 @@ export default function SchedulePage() {
   const [hasCanvasUrl, setHasCanvasUrl] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [googleError, setGoogleError] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
@@ -161,7 +170,14 @@ export default function SchedulePage() {
   ];
 
   return (
-    <div className="flex gap-5 h-full">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        gap: "20px",
+        height: isMobile ? undefined : "100%",
+      }}
+    >
       {/* ── Main calendar ── */}
       <div className="flex flex-col gap-4 flex-1 min-w-0">
         {/* Header */}
@@ -226,6 +242,91 @@ export default function SchedulePage() {
               <line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
             Google Calendar: {googleError}. Try signing out and back in.
+          </div>
+        )}
+
+        {/* Schedule Info toggle + inline panel — mobile only */}
+        {isMobile && (
+          <div className="flex flex-col">
+            <button
+              type="button"
+              onClick={() => setShowInfo((v) => !v)}
+              className="flex items-center justify-between px-4 py-3 text-sm font-medium"
+              style={{
+                background: "#fff",
+                border: "0.5px solid #ebebeb",
+                borderRadius: showInfo ? "12px 12px 0 0" : "12px",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                color: "#1a1a2e",
+              }}
+            >
+              <span className="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                Calendar Info
+              </span>
+              <svg
+                width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2"
+                style={{ transform: showInfo ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {showInfo && (
+              <div
+                className="flex flex-col gap-4 p-4"
+                style={{
+                  background: "#fafafa",
+                  border: "0.5px solid #ebebeb",
+                  borderTop: "none",
+                  borderRadius: "0 0 12px 12px",
+                }}
+              >
+                {showSetup && (
+                  <CalendarSetup
+                    hasCanvasUrl={hasCanvasUrl}
+                    onCanvasSaved={() => { setHasCanvasUrl(true); fetchEvents(); }}
+                    onCanvasRemoved={() => { setHasCanvasUrl(false); fetchEvents(); }}
+                  />
+                )}
+                {/* Event sources legend */}
+                <div className="rounded-2xl p-4 flex flex-col gap-3" style={{ background: "#fff", border: "0.5px solid #ebebeb" }}>
+                  <p className="text-xs font-medium" style={{ color: "#1a1a2e" }}>Event sources</p>
+                  {legendItems.map((item) => (
+                    <div key={item.label} className="flex items-center gap-2">
+                      <div className="rounded-full flex-shrink-0" style={{ width: 8, height: 8, background: item.color }} />
+                      <span className="text-xs flex-1" style={{ color: "#666" }}>{item.label}</span>
+                      {item.count !== null && (
+                        <span className="text-xs font-medium" style={{ color: "#1a1a2e", fontFamily: "monospace" }}>{item.count}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {!hasCanvasUrl && !showSetup && (
+                  <div className="rounded-2xl p-4 flex flex-col gap-3" style={{ background: "rgba(226,75,74,0.05)", border: "0.5px solid rgba(226,75,74,0.15)" }}>
+                    <div className="flex items-center gap-2">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E24B4A" strokeWidth="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                      <p className="text-xs font-medium" style={{ color: "#E24B4A" }}>Canvas not connected</p>
+                    </div>
+                    <p className="text-xs" style={{ color: "#666", lineHeight: 1.55 }}>Connect your Canvas iCal feed to automatically import your assignment deadlines.</p>
+                    <button type="button" onClick={() => setShowSetup(true)} className="text-xs py-2 rounded-xl font-medium text-white" style={{ background: "#E24B4A", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+                      Connect Canvas
+                    </button>
+                  </div>
+                )}
+                <div className="rounded-2xl p-4 flex flex-col gap-2" style={{ background: "rgba(79,142,247,0.05)", border: "0.5px solid rgba(79,142,247,0.15)" }}>
+                  <p className="text-xs font-medium" style={{ color: "#4f8ef7" }}>Tip</p>
+                  <p className="text-xs" style={{ color: "#666", lineHeight: 1.55 }}>Tasks with due dates appear on the calendar. Completed tasks are shown with a strikethrough.</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -299,7 +400,8 @@ export default function SchedulePage() {
         </div>
       </div>
 
-      {/* ── Right sidebar ── */}
+      {/* ── Right sidebar — desktop only ── */}
+      {!isMobile && (
       <div
         className="flex-shrink-0 flex flex-col gap-4"
         style={{ width: "240px" }}
@@ -409,6 +511,7 @@ export default function SchedulePage() {
           </p>
         </div>
       </div>
+      )}
     </div>
   );
 }

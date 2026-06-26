@@ -14,9 +14,10 @@ type Category = {
 type Props = {
   categories: Category[];
   totalBudget: number;
+  categoriesOnly?: boolean;
 };
 
-export default function CategoryList({ categories, totalBudget }: Props) {
+export default function CategoryList({ categories, totalBudget, categoriesOnly = false }: Props) {
   const totalSpent = categories.reduce((sum, c) => sum + c.spent, 0);
   const remaining = totalBudget - totalSpent;
 
@@ -28,13 +29,15 @@ export default function CategoryList({ categories, totalBudget }: Props) {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Donut chart */}
-      <DonutChart
-        segments={segments}
-        remaining={remaining}
-        total={totalBudget}
-        spent={totalSpent}
-      />
+      {/* Donut chart — hidden when categoriesOnly */}
+      {!categoriesOnly && (
+        <DonutChart
+          segments={segments}
+          remaining={remaining}
+          total={totalBudget}
+          spent={totalSpent}
+        />
+      )}
 
       {/* Category rows */}
       <div className="flex flex-col gap-2">

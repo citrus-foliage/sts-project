@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Task, TaskStatus, COLUMN_CONFIG } from "@/types/tasks";
 import TaskCard from "./TaskCard";
 
@@ -18,6 +19,15 @@ export default function KanbanBoard({
   onTaskClick,
   onAddTask,
 }: Props) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   const columns = Object.entries(COLUMN_CONFIG) as [
     TaskStatus,
     { label: string; color: string },
@@ -25,8 +35,16 @@ export default function KanbanBoard({
 
   return (
     <div
-      className="flex gap-3 overflow-x-auto pb-4"
-      style={{ minHeight: "500px" }}
+      style={{
+        display: "flex",
+        gap: "12px",
+        overflowX: "auto",
+        paddingBottom: "16px",
+        minHeight: "500px",
+        // Snap scrolling on mobile
+        scrollSnapType: isMobile ? "x mandatory" : undefined,
+        WebkitOverflowScrolling: "touch",
+      }}
     >
       {columns.map(([status, config]) => {
         const columnTasks = tasks.filter((t) => t.status === status);
@@ -34,7 +52,12 @@ export default function KanbanBoard({
           <div
             key={status}
             className="flex flex-col gap-2 flex-shrink-0"
-            style={{ width: "240px" }}
+            style={{
+              // On mobile: each column snaps and is ~85vw so next column peeks
+              // On desktop: fixed 240px
+              width: isMobile ? "85vw" : "240px",
+              scrollSnapAlign: isMobile ? "start" : undefined,
+            }}
           >
             {/* Column header */}
             <div className="flex items-center gap-2 px-1">

@@ -582,10 +582,7 @@ export default function TimerPage() {
       </div>
 
       {/* ── Stats row ── */}
-      <div
-        className="grid gap-3"
-        style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
-      >
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           {
             label: "Today's sessions",
