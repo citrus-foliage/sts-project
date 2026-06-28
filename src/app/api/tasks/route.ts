@@ -25,6 +25,9 @@ export async function GET() {
   const taskIds = (data ?? []).map((t) => t.id);
   let subtasks: Record<string, unknown[]> = {};
 
+  // Also fetch due_time directly from tasks table
+  // The view may not include due_time if it was added after the view was created
+  let dueTimeMap: Record<string, string | null> = {};
   if (taskIds.length > 0) {
     const { data: subtaskData } = await supabaseAdmin
       .from("subtasks")
@@ -40,10 +43,24 @@ export async function GET() {
       },
       {} as Record<string, unknown[]>,
     );
+
+    const { data: dueTimes } = await supabaseAdmin
+      .from("tasks")
+      .select("id, due_time")
+      .in("id", taskIds);
+
+    dueTimeMap = (dueTimes ?? []).reduce(
+      (acc, t) => {
+        acc[t.id] = t.due_time ?? null;
+        return acc;
+      },
+      {} as Record<string, string | null>,
+    );
   }
 
   const tasks = (data ?? []).map((t) => ({
     ...t,
+    due_time: dueTimeMap[t.id] ?? t.due_time ?? null,
     subtasks: subtasks[t.id] ?? [],
   }));
 
@@ -58,7 +75,15 @@ export async function POST(req: NextRequest) {
 
   const userId = session.user.email;
   const body = await req.json();
-  const { title, description, status, priority, category_id, due_date } = body;
+  const {
+    title,
+    description,
+    status,
+    priority,
+    category_id,
+    due_date,
+    due_time,
+  } = body;
 
   if (!title) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
@@ -85,6 +110,7 @@ export async function POST(req: NextRequest) {
       priority: priority ?? "medium",
       category_id: category_id ?? null,
       due_date: due_date ?? null,
+      due_time: due_time ?? null,
       position,
     })
     .select()

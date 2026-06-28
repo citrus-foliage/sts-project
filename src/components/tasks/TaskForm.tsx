@@ -12,6 +12,7 @@ type Props = {
     priority: TaskPriority;
     category_id: string;
     due_date: string;
+    due_time: string;
   }) => Promise<void>;
   onCancel: () => void;
 };
@@ -27,6 +28,7 @@ export default function TaskForm({
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [categoryId, setCategoryId] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -45,6 +47,7 @@ export default function TaskForm({
         priority,
         category_id: categoryId,
         due_date: dueDate,
+        due_time: dueTime,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -161,6 +164,22 @@ export default function TaskForm({
           />
         </div>
       </div>
+
+      {/* Row — Due time (only shown if due date is set) */}
+      {dueDate && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium" style={{ color: "#555" }}>
+            Due time{" "}
+          </label>
+          <input
+            type="time"
+            value={dueTime}
+            onChange={(e) => setDueTime(e.target.value)}
+            className="px-3 py-2.5 rounded-xl text-sm outline-none"
+            style={inputStyle}
+          />
+        </div>
+      )}
 
       {error && (
         <p className="text-xs" style={{ color: "#dc2626" }}>

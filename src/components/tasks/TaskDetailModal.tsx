@@ -51,6 +51,7 @@ export default function TaskDetailModal({
   const [status, setStatus] = useState(task.status);
   const [priority, setPriority] = useState(task.priority);
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
+  const [dueTime, setDueTime] = useState(task.due_time ?? "");
   const [categoryId, setCategoryId] = useState(task.category_id ?? "");
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -84,9 +85,19 @@ export default function TaskDetailModal({
       status !== task.status ||
       priority !== task.priority ||
       dueDate !== (task.due_date ?? "") ||
+      dueTime !== (task.due_time ?? "") ||
       categoryId !== (task.category_id ?? "");
     setIsDirty(changed);
-  }, [title, description, status, priority, dueDate, categoryId, task]);
+  }, [
+    title,
+    description,
+    status,
+    priority,
+    dueDate,
+    dueTime,
+    categoryId,
+    task,
+  ]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -104,6 +115,7 @@ export default function TaskDetailModal({
       status,
       priority,
       due_date: dueDate || undefined,
+      due_time: dueTime || undefined,
       category_id: categoryId || undefined,
     };
     try {
@@ -437,6 +449,39 @@ export default function TaskDetailModal({
                 onChange={(e) => setDueDate(e.target.value)}
                 style={inputStyle}
               />
+
+              {/* Due time */}
+              {dueDate && (
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    className="text-xs font-medium"
+                    style={{ color: "#555" }}
+                  >
+                    Due time
+                    <span
+                      style={{
+                        color: "#bbb",
+                        fontWeight: 400,
+                        marginLeft: "4px",
+                      }}
+                    >
+                      (optional — shows on calendar)
+                    </span>
+                  </label>
+                  <input
+                    type="time"
+                    value={dueTime}
+                    onChange={(e) => setDueTime(e.target.value)}
+                    className="px-3 py-2.5 rounded-xl text-sm outline-none w-full"
+                    style={{
+                      border: "1px solid #e5e5e5",
+                      background: "#fafafa",
+                      fontFamily: "inherit",
+                      color: "#1a1a2e",
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Category */}
