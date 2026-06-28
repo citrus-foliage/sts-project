@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 
 type Config = {
   id: string;
@@ -9,41 +10,67 @@ type Config = {
 };
 
 type Props = {
-  compact?: boolean; // true = dashboard widget, false = full page
+  compact?: boolean;
 };
 
 export default function DailyBudgetWidget({ compact = false }: Props) {
   const [config, setConfig] = useState<Config | null>(null);
+  const [budgetBalance, setBudgetBalance] = useState<number | null>(null);
+  const [hasBudgetPlan, setHasBudgetPlan] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [balance, setBalance] = useState("");
   const [cycleDate, setCycleDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchConfig = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/daily-budget");
-      const data = await res.json();
-      if (data.config) {
-        setConfig(data.config);
-        setBalance(data.config.remaining_balance.toString());
-        setCycleDate(data.config.next_budget_cycle);
+      // Fetch daily budget config and budget plan in parallel
+      const [dailyRes, planRes] = await Promise.all([
+        fetch("/api/daily-budget"),
+        fetch("/api/budget/plan"),
+      ]);
+
+      const [dailyData, planData] = await Promise.all([
+        dailyRes.json(),
+        planRes.json(),
+      ]);
+
+      // Compute remaining balance from Budget Planner
+      if (planData.plan) {
+        setHasBudgetPlan(true);
+        const totalSpent = (planData.plan.transactions ?? [])
+          .filter((t: { type: string }) => t.type === "expense")
+          .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
+        const remaining = planData.plan.total_budget - totalSpent;
+        setBudgetBalance(remaining);
+      } else {
+        setHasBudgetPlan(false);
+      }
+
+      // Load existing cycle date config
+      if (dailyData.config) {
+        setConfig(dailyData.config);
+        setCycleDate(dailyData.config.next_budget_cycle);
       }
     } catch (err) {
-      console.error("Fetch config error:", err);
+      console.error("Fetch error:", err);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchConfig();
-  }, [fetchConfig]);
+    fetchData();
+  }, [fetchData]);
 
   const handleSave = async () => {
-    if (!balance || !cycleDate) {
-      setError("Please fill in both fields");
+    if (!cycleDate) {
+      setError("Please set your next allowance or payday date");
+      return;
+    }
+    if (budgetBalance === null) {
+      setError("Set up your Budget Planner first to get your balance");
       return;
     }
     setSaving(true);
@@ -53,7 +80,7 @@ export default function DailyBudgetWidget({ compact = false }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          remaining_balance: parseFloat(balance),
+          remaining_balance: budgetBalance,
           next_budget_cycle: cycleDate,
         }),
       });
@@ -68,28 +95,30 @@ export default function DailyBudgetWidget({ compact = false }: Props) {
     }
   };
 
-  // ── Computed values ──
+  // Computed values
+  // Always use live budget balance instead of stored one
+  const effectiveBalance = budgetBalance ?? config?.remaining_balance ?? null;
+
   const computeDailyAllowance = () => {
-    if (!config) return null;
+    if (!effectiveBalance || !config?.next_budget_cycle) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const cycle = new Date(config.next_budget_cycle);
     cycle.setHours(0, 0, 0, 0);
     const diffMs = cycle.getTime() - today.getTime();
     const daysLeft = Math.max(Math.ceil(diffMs / (1000 * 60 * 60 * 24)), 1);
-    const daily = config.remaining_balance / daysLeft;
+    const daily = effectiveBalance / daysLeft;
     return { daily, daysLeft };
   };
 
   const computed = computeDailyAllowance();
 
-  const formatCycleDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("en-PH", {
+  const formatCycleDate = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString("en-PH", {
       month: "long",
       day: "numeric",
       year: "numeric",
     });
-  };
 
   const getStatusColor = () => {
     if (!computed) return "#999";
@@ -120,7 +149,44 @@ export default function DailyBudgetWidget({ compact = false }: Props) {
     );
   }
 
-  // ── Setup / Edit Form ──
+  // No budget plan yet
+  if (!hasBudgetPlan) {
+    return (
+      <div
+        className="rounded-2xl p-5 flex flex-col gap-3"
+        style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+      >
+        <p className="text-sm font-medium" style={{ color: "#1a1a2e" }}>
+          Daily Budget Calculator
+        </p>
+        <div
+          className="rounded-xl p-4 flex flex-col gap-3"
+          style={{
+            background: "rgba(79,142,247,0.05)",
+            border: "0.5px solid rgba(79,142,247,0.15)",
+          }}
+        >
+          <p className="text-xs" style={{ color: "#4f8ef7", lineHeight: 1.6 }}>
+            This calculator pulls your remaining balance automatically from your
+            Budget Planner. Set up your budget first to get started.
+          </p>
+          <Link
+            href="/budget"
+            className="text-xs px-3 py-2 rounded-lg text-center font-medium"
+            style={{
+              background: "#4f8ef7",
+              color: "#fff",
+              textDecoration: "none",
+            }}
+          >
+            Set up Budget Planner →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Setup / Edit Form
   if (!config || editing) {
     return (
       <div
@@ -132,91 +198,99 @@ export default function DailyBudgetWidget({ compact = false }: Props) {
             {editing ? "Update Daily Budget" : "Set Up Daily Budget Calculator"}
           </p>
           <p className="text-xs mt-1" style={{ color: "#666" }}>
-            Enter your remaining balance and next allowance or payday to
-            calculate how much you can safely spend each day.
+            Your remaining balance is pulled automatically from your Budget
+            Planner. Just set your next allowance or payday date.
           </p>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium" style={{ color: "#555" }}>
-              Current remaining balance (₱)
-            </label>
-            <input
-              type="number"
-              placeholder="e.g. 1500"
-              value={balance}
-              onChange={(e) => setBalance(e.target.value)}
-              className="px-3 py-2.5 rounded-xl text-sm outline-none"
-              style={{
-                border: "1px solid #e5e5e5",
-                background: "#fafafa",
-                fontFamily: "inherit",
-              }}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium" style={{ color: "#555" }}>
-              Next allowance or payday
-            </label>
-            <input
-              type="date"
-              value={cycleDate}
-              onChange={(e) => setCycleDate(e.target.value)}
-              className="px-3 py-2.5 rounded-xl text-sm outline-none"
-              style={{
-                border: "1px solid #e5e5e5",
-                background: "#fafafa",
-                fontFamily: "inherit",
-              }}
-            />
-          </div>
-
-          {error && (
-            <p className="text-xs" style={{ color: "#dc2626" }}>
-              {error}
+        {/* Balance pulled from Budget Planner — read only */}
+        <div
+          className="rounded-xl p-3 flex items-center justify-between"
+          style={{
+            background: "rgba(99,153,34,0.06)",
+            border: "0.5px solid rgba(99,153,34,0.18)",
+          }}
+        >
+          <div>
+            <p className="text-xs font-medium" style={{ color: "#639922" }}>
+              Remaining balance
             </p>
-          )}
+            <p className="text-xs mt-0.5" style={{ color: "#888" }}>
+              Pulled from Budget Planner
+            </p>
+          </div>
+          <p
+            className="text-sm font-semibold"
+            style={{ color: "#1a1a2e", fontFamily: "monospace" }}
+          >
+            ₱
+            {budgetBalance?.toLocaleString("en-PH", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </p>
+        </div>
 
-          <div className="flex gap-2">
-            {editing && (
-              <button
-                type="button"
-                onClick={() => setEditing(false)}
-                className="flex-1 py-2.5 rounded-xl text-sm"
-                style={{
-                  background: "#f5f4f0",
-                  border: "0.5px solid #ebebeb",
-                  color: "#666",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Cancel
-              </button>
-            )}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium" style={{ color: "#555" }}>
+            Next allowance or payday
+          </label>
+          <input
+            type="date"
+            value={cycleDate}
+            onChange={(e) => setCycleDate(e.target.value)}
+            className="px-3 py-2.5 rounded-xl text-sm outline-none"
+            style={{
+              border: "1px solid #e5e5e5",
+              background: "#fafafa",
+              fontFamily: "inherit",
+            }}
+          />
+        </div>
+
+        {error && (
+          <p className="text-xs" style={{ color: "#dc2626" }}>
+            {error}
+          </p>
+        )}
+
+        <div className="flex gap-2">
+          {editing && (
             <button
               type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white"
+              onClick={() => setEditing(false)}
+              className="flex-1 py-2.5 rounded-xl text-sm"
               style={{
-                background: saving ? "#ccc" : "#1a1a2e",
-                border: "none",
-                cursor: saving ? "not-allowed" : "pointer",
+                background: "#f5f4f0",
+                border: "0.5px solid #ebebeb",
+                color: "#666",
+                cursor: "pointer",
                 fontFamily: "inherit",
               }}
             >
-              {saving ? "Saving..." : "Calculate"}
+              Cancel
             </button>
-          </div>
+          )}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white"
+            style={{
+              background: saving ? "#ccc" : "#1a1a2e",
+              border: "none",
+              cursor: saving ? "not-allowed" : "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            {saving ? "Saving..." : "Calculate"}
+          </button>
         </div>
       </div>
     );
   }
 
-  // ── Result Display ──
+  // Result display
   return (
     <div
       className="rounded-2xl flex flex-col gap-4"
@@ -289,7 +363,7 @@ export default function DailyBudgetWidget({ compact = false }: Props) {
           style={{ background: "#f5f4f0", border: "0.5px solid #ebebeb" }}
         >
           <div className="flex justify-between text-xs">
-            <span style={{ color: "#666" }}>Available balance</span>
+            <span style={{ color: "#666" }}>Remaining balance</span>
             <span
               style={{
                 color: "#1a1a2e",
@@ -297,7 +371,17 @@ export default function DailyBudgetWidget({ compact = false }: Props) {
                 fontFamily: "monospace",
               }}
             >
-              ₱{config.remaining_balance.toLocaleString()}
+              ₱
+              {effectiveBalance?.toLocaleString("en-PH", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span style={{ color: "#666" }}>Source</span>
+            <span style={{ color: "#639922", fontWeight: 500 }}>
+              Budget Planner
             </span>
           </div>
           <div className="flex justify-between text-xs">
