@@ -56,6 +56,7 @@ export default function TasksPage() {
     priority: string;
     category_id: string;
     due_date: string;
+    due_time: string;
   }) => {
     const res = await fetch("/api/tasks", {
       method: "POST",
