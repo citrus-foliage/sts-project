@@ -29,6 +29,7 @@ export type ForumPost = {
   comment_count?: number;
   user_has_upvoted?: boolean;
   user_has_flagged?: boolean;
+  author_display_name?: string | null;
 };
 
 export type ForumComment = {
@@ -44,6 +45,7 @@ export type ForumComment = {
   created_at: string;
   replies?: ForumComment[];
   user_has_upvoted?: boolean;
+  deleted?: boolean;
 };
 
 export const FLAIR_CONFIG: Record<

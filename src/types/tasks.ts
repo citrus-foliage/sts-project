@@ -14,6 +14,7 @@ export type Task = {
   priority: TaskPriority;
   category_id?: string;
   due_date?: string;
+  due_time?: string;
   position: number;
   created_at: string;
   subtask_count?: number;
