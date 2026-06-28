@@ -32,12 +32,28 @@ export async function GET(
     .select("id")
     .eq("post_id", postId)
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
+
+  // Fetch author display name if the post is non-anonymous
+  let author_display_name: string | null = null;
+  if (!post.is_anonymous) {
+    const { data: authorSettings } = await supabaseAdmin
+      .from("user_settings")
+      .select("display_name, forum_show_display_name")
+      .eq("user_id", post.author_id)
+      .maybeSingle();
+
+    if (authorSettings?.forum_show_display_name) {
+      author_display_name =
+        authorSettings.display_name ?? post.author_id.split("@")[0];
+    }
+  }
 
   return NextResponse.json({
     post: {
       ...post,
       user_has_upvoted: !!upvote,
+      author_display_name,
     },
   });
 }

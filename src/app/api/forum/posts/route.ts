@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const userId = session.user.email;
   const { searchParams } = new URL(req.url);
   const sort = searchParams.get("sort") ?? "new";
-  const flair = searchParams.get("flair");
+  const flairs = searchParams.getAll("flair");
   const page = parseInt(searchParams.get("page") ?? "1");
   const limit = 20;
   const offset = (page - 1) * limit;
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     .select("*, forum_comments(count)", { count: "exact" })
     .neq("status", "removed")
     .range(offset, offset + limit - 1);
-  if (flair) query = query.eq("flair", flair);
+  if (flairs.length > 0) query = query.in("flair", flairs);
   if (search && search.trim().length > 0) {
     query = query.or(
       `title.ilike.%${search.trim()}%,body.ilike.%${search.trim()}%`,
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Check which posts user has upvoted
+  // Check which posts the user has upvoted
   const postIds = (data ?? []).map((p) => p.id);
   let upvotedIds: string[] = [];
 
@@ -61,10 +61,36 @@ export async function GET(req: NextRequest) {
     upvotedIds = (upvotes ?? []).map((u) => u.post_id);
   }
 
+  // Fetch display name settings for all non-anonymous post authors
+  const nonAnonAuthorIds = [
+    ...new Set(
+      (data ?? []).filter((p) => !p.is_anonymous).map((p) => p.author_id),
+    ),
+  ];
+
+  const displayNameMap: Record<string, string | null> = {};
+
+  if (nonAnonAuthorIds.length > 0) {
+    const { data: settings } = await supabaseAdmin
+      .from("user_settings")
+      .select("user_id, display_name, forum_show_display_name")
+      .in("user_id", nonAnonAuthorIds);
+
+    (settings ?? []).forEach((s) => {
+      // Only surface the name if the author has opted in
+      displayNameMap[s.user_id] = s.forum_show_display_name
+        ? (s.display_name ?? s.user_id.split("@")[0])
+        : null;
+    });
+  }
+
   const posts = (data ?? []).map((post) => ({
     ...post,
     comment_count: post.forum_comments?.[0]?.count ?? 0,
     user_has_upvoted: upvotedIds.includes(post.id),
+    author_display_name: post.is_anonymous
+      ? null
+      : (displayNameMap[post.author_id] ?? null),
   }));
 
   return NextResponse.json({ posts });
