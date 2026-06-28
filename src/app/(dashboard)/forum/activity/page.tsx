@@ -8,6 +8,7 @@ type ActivityPost = {
   post_id: string;
   saved_at?: string;
   hidden_at?: string;
+  voted_at?: string;
   forum_posts: {
     id: string;
     title: string;
@@ -18,29 +19,33 @@ type ActivityPost = {
   };
 };
 
-type Tab = "saved" | "hidden";
+type Tab = "saved" | "hidden" | "upvoted";
 
 export default function ForumActivityPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("saved");
   const [saved, setSaved] = useState<ActivityPost[]>([]);
   const [hidden, setHidden] = useState<ActivityPost[]>([]);
+  const [upvoted, setUpvoted] = useState<ActivityPost[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const [savedRes, hiddenRes] = await Promise.all([
+        const [savedRes, hiddenRes, upvotedRes] = await Promise.all([
           fetch("/api/forum/save"),
           fetch("/api/forum/hide"),
+          fetch("/api/forum/upvote"),
         ]);
-        const [savedData, hiddenData] = await Promise.all([
+        const [savedData, hiddenData, upvotedData] = await Promise.all([
           savedRes.json(),
           hiddenRes.json(),
+          upvotedRes.json(),
         ]);
         setSaved(savedData.saved ?? []);
         setHidden(hiddenData.hidden ?? []);
+        setUpvoted(upvotedData.upvoted ?? []);
       } catch (err) {
         console.error("Fetch activity error:", err);
       } finally {
@@ -68,6 +73,11 @@ export default function ForumActivityPage() {
     setHidden((prev) => prev.filter((h) => h.post_id !== postId));
   };
 
+  const handleUnupvote = async (postId: string) => {
+    await fetch(`/api/forum/posts/${postId}/upvote`, { method: "POST" });
+    setUpvoted((prev) => prev.filter((u) => u.post_id !== postId));
+  };
+
   const formatTime = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("en-PH", {
       month: "short",
@@ -79,13 +89,17 @@ export default function ForumActivityPage() {
   const tabs: { id: Tab; label: string; count: number }[] = [
     { id: "saved", label: "Saved", count: saved.length },
     { id: "hidden", label: "Hidden", count: hidden.length },
+    { id: "upvoted", label: "Upvoted", count: upvoted.length },
   ];
 
-  const activeList = activeTab === "saved" ? saved : hidden;
+  const activeList =
+    activeTab === "saved" ? saved : activeTab === "hidden" ? hidden : upvoted;
   const emptyLabel =
     activeTab === "saved"
       ? "No saved posts yet — bookmark posts you want to revisit by clicking ··· on any post."
-      : "No hidden posts — posts you hide from the feed will appear here.";
+      : activeTab === "hidden"
+        ? "No hidden posts — posts you hide from the feed will appear here."
+        : "No upvoted posts yet — posts you upvote will appear here.";
 
   return (
     <div className="flex flex-col gap-4 max-w-2xl">
@@ -198,11 +212,16 @@ export default function ForumActivityPage() {
           >
             {activeTab === "saved" ? (
               <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-            ) : (
+            ) : activeTab === "hidden" ? (
               <>
                 <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
                 <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
                 <line x1="1" y1="1" x2="23" y2="23" />
+              </>
+            ) : (
+              <>
+                <polyline points="17 11 12 6 7 11" />
+                <line x1="12" y1="6" x2="12" y2="18" />
               </>
             )}
           </svg>
@@ -228,7 +247,11 @@ export default function ForumActivityPage() {
               bg: "#f5f4f0",
             };
             const timestamp =
-              activeTab === "saved" ? item.saved_at : item.hidden_at;
+              activeTab === "saved"
+                ? item.saved_at
+                : activeTab === "hidden"
+                  ? item.hidden_at
+                  : item.voted_at;
 
             return (
               <div
@@ -254,7 +277,11 @@ export default function ForumActivityPage() {
                     {flairConfig.label}
                   </span>
                   <span style={{ fontSize: "11px", color: "#bbb" }}>
-                    {activeTab === "saved" ? "Saved" : "Hidden"}{" "}
+                    {activeTab === "saved"
+                      ? "Saved"
+                      : activeTab === "hidden"
+                        ? "Hidden"
+                        : "Upvoted"}{" "}
                     {timestamp ? formatTime(timestamp) : ""}
                   </span>
                 </div>
@@ -313,7 +340,9 @@ export default function ForumActivityPage() {
                     onClick={() =>
                       activeTab === "saved"
                         ? handleUnsave(item.post_id)
-                        : handleUnhide(item.post_id)
+                        : activeTab === "hidden"
+                          ? handleUnhide(item.post_id)
+                          : handleUnupvote(item.post_id)
                     }
                     className="text-xs px-3 py-1.5 rounded-lg"
                     style={{
@@ -324,7 +353,11 @@ export default function ForumActivityPage() {
                       fontFamily: "inherit",
                     }}
                   >
-                    {activeTab === "saved" ? "Remove from saved" : "Unhide"}
+                    {activeTab === "saved"
+                      ? "Remove from saved"
+                      : activeTab === "hidden"
+                        ? "Unhide"
+                        : "Remove upvote"}
                   </button>
                 </div>
               </div>
