@@ -31,6 +31,13 @@ export async function GET() {
       notify_forum_replies: true,
       forum_default_anonymous: true,
       forum_show_display_name: false,
+      show_tasks: true,
+      show_budget: true,
+      show_survival: true,
+      show_schedule: true,
+      show_timer: true,
+      show_forum: true,
+      show_resources: true,
     },
   });
 }
@@ -52,6 +59,13 @@ export async function POST(req: NextRequest) {
     notify_forum_replies,
     forum_default_anonymous,
     forum_show_display_name,
+    show_tasks,
+    show_budget,
+    show_survival,
+    show_schedule,
+    show_timer,
+    show_forum,
+    show_resources,
   } = body;
 
   const { data, error } = await supabaseAdmin
@@ -66,6 +80,13 @@ export async function POST(req: NextRequest) {
         notify_forum_replies,
         forum_default_anonymous,
         forum_show_display_name,
+        show_tasks,
+        show_budget,
+        show_survival,
+        show_schedule,
+        show_timer,
+        show_forum,
+        show_resources,
       },
       { onConflict: "user_id" },
     )
