@@ -17,7 +17,7 @@ export default function ForumPage() {
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<SortMode>("new");
-  const [flairFilter, setFlairFilter] = useState<ForumFlair | "all">("all");
+  const [flairFilter, setFlairFilter] = useState<Set<ForumFlair>>(new Set());
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [mutedWords, setMutedWords] = useState<string[]>([]);
@@ -61,16 +61,16 @@ export default function ForumPage() {
   const clearFilters = () => {
     setSearch("");
     setDebouncedSearch("");
-    setFlairFilter("all");
+    setFlairFilter(new Set());
   };
 
   const hasActiveFilters =
-    debouncedSearch.trim().length > 0 || flairFilter !== "all";
+    debouncedSearch.trim().length > 0 || flairFilter.size > 0;
 
   const fetchPosts = useCallback(async () => {
     try {
       const params = new URLSearchParams({ sort });
-      if (flairFilter !== "all") params.set("flair", flairFilter);
+      flairFilter.forEach((f) => params.append("flair", f));
       if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
       const res = await fetch(`/api/forum/posts?${params}`);
       const data = await res.json();
@@ -290,11 +290,11 @@ export default function ForumPage() {
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
-              onClick={() => setFlairFilter("all")}
+              onClick={() => setFlairFilter(new Set())}
               className="px-2.5 py-1 rounded-full text-xs"
               style={{
-                background: flairFilter === "all" ? "#1a1a2e" : "#fff",
-                color: flairFilter === "all" ? "#fff" : "#666",
+                background: flairFilter.size === 0 ? "#1a1a2e" : "#fff",
+                color: flairFilter.size === 0 ? "#fff" : "#666",
                 border: "0.5px solid #ebebeb",
                 cursor: "pointer",
                 fontFamily: "inherit",
@@ -302,24 +302,33 @@ export default function ForumPage() {
             >
               All
             </button>
-            {flairs.map(([f, config]) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setFlairFilter(flairFilter === f ? "all" : f)}
-                className="px-2.5 py-1 rounded-full text-xs font-medium"
-                style={{
-                  background: flairFilter === f ? config.bg : "#fff",
-                  color: flairFilter === f ? config.color : "#666",
-                  border: `0.5px solid ${flairFilter === f ? config.color + "44" : "#ebebeb"}`,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  transition: "all 0.15s",
-                }}
-              >
-                {config.label}
-              </button>
-            ))}
+            {flairs.map(([f, config]) => {
+              const active = flairFilter.has(f);
+              return (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => {
+                    setFlairFilter((prev) => {
+                      const next = new Set(prev);
+                      next.has(f) ? next.delete(f) : next.add(f);
+                      return next;
+                    });
+                  }}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium"
+                  style={{
+                    background: active ? config.bg : "#fff",
+                    color: active ? config.color : "#666",
+                    border: `0.5px solid ${active ? config.color + "44" : "#ebebeb"}`,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {config.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -349,10 +358,15 @@ export default function ForumPage() {
                 for &quot;<strong>{debouncedSearch.trim()}</strong>&quot;
               </span>
             )}
-            {flairFilter !== "all" && (
+            {flairFilter.size > 0 && (
               <span>
                 {" "}
-                in <strong>{FLAIR_CONFIG[flairFilter].label}</strong>
+                in{" "}
+                <strong>
+                  {[...flairFilter]
+                    .map((f) => FLAIR_CONFIG[f].label)
+                    .join(", ")}
+                </strong>
               </span>
             )}
             <span style={{ color: "#4f8ef7" }}>
