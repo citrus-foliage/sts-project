@@ -29,6 +29,7 @@ export default function CommentThread({
   const [replyAnon, setReplyAnon] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [deleted, setDeleted] = useState(comment.deleted ?? false);
 
   const isOwner = comment.author_id === currentUserId;
 
@@ -80,6 +81,18 @@ export default function CommentThread({
     }
   };
 
+  const handleDelete = async () => {
+    // Optimistic update — flip to deleted immediately
+    setDeleted(true);
+    const res = await fetch(`/api/forum/comments/${comment.id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      // Revert if the server rejected it
+      setDeleted(false);
+    }
+  };
+
   return (
     <div
       style={{
@@ -117,77 +130,86 @@ export default function CommentThread({
           </span>
         </div>
 
-        {/* Body */}
-        <p className="text-sm leading-relaxed" style={{ color: "#1a1a2e" }}>
-          {comment.body}
-        </p>
+        {/* Body — greyed out placeholder when soft-deleted */}
+        {deleted ? (
+          <p className="text-sm" style={{ color: "#bbb", fontStyle: "italic" }}>
+            [deleted]
+          </p>
+        ) : (
+          <p className="text-sm leading-relaxed" style={{ color: "#1a1a2e" }}>
+            {comment.body}
+          </p>
+        )}
 
-        {/* Actions */}
-        <div className="flex items-center gap-3">
-          {/* Upvote */}
-          <button
-            type="button"
-            onClick={() => onUpvote(comment.id)}
-            className="flex items-center gap-1.5 text-xs"
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: comment.user_has_upvoted ? "#4f8ef7" : "#999",
-              fontFamily: "inherit",
-              padding: 0,
-            }}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-            >
-              <polyline points="18 15 12 9 6 15" />
-            </svg>
-            {comment.upvotes > 0 && comment.upvotes}
-          </button>
-
-          {/* Reply */}
-          {depth < 1 && (
+        {/* Actions — hidden entirely when deleted */}
+        {!deleted && (
+          <div className="flex items-center gap-3">
+            {/* Upvote */}
             <button
               type="button"
-              onClick={() => setShowReplyForm(!showReplyForm)}
-              className="text-xs"
+              onClick={() => onUpvote(comment.id)}
+              className="flex items-center gap-1.5 text-xs"
               style={{
                 background: "none",
                 border: "none",
                 cursor: "pointer",
-                color: "#999",
+                color: comment.user_has_upvoted ? "#4f8ef7" : "#999",
                 fontFamily: "inherit",
                 padding: 0,
               }}
             >
-              Reply
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <polyline points="18 15 12 9 6 15" />
+              </svg>
+              {comment.upvotes > 0 && comment.upvotes}
             </button>
-          )}
 
-          {/* Delete own comment */}
-          {isOwner && (
-            <button
-              type="button"
-              className="text-xs ml-auto"
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#ccc",
-                fontFamily: "inherit",
-                padding: 0,
-              }}
-            >
-              Delete
-            </button>
-          )}
-        </div>
+            {/* Reply */}
+            {depth < 1 && (
+              <button
+                type="button"
+                onClick={() => setShowReplyForm(!showReplyForm)}
+                className="text-xs"
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#999",
+                  fontFamily: "inherit",
+                  padding: 0,
+                }}
+              >
+                Reply
+              </button>
+            )}
+
+            {/* Delete own comment */}
+            {isOwner && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="text-xs ml-auto"
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#ccc",
+                  fontFamily: "inherit",
+                  padding: 0,
+                }}
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Reply form */}
         {showReplyForm && (
