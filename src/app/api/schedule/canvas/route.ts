@@ -65,6 +65,9 @@ export async function GET() {
           backgroundColor: "#E24B4A",
           borderColor: "#E24B4A",
           textColor: "#fff",
+          extendedProps: {
+            uid: event.uid as string,
+          },
         };
       })
       .filter((e: { start?: string }) => {
