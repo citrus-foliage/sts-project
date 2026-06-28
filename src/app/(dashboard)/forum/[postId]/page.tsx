@@ -173,7 +173,13 @@ export default function PostDetailPage({
     );
   }
 
-  const displayName = post.is_anonymous ? `Anonymous ${post.anon_code}` : "You";
+  const displayName = post.is_anonymous
+    ? `Anonymous ${post.anon_code}`
+    : post.author_display_name
+      ? post.author_display_name
+      : post.author_id === userId
+        ? "You"
+        : `Anonymous ${post.anon_code}`;
 
   return (
     <div className="flex gap-5 h-full">

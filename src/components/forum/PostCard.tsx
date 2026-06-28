@@ -34,7 +34,13 @@ export default function PostCard({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isOwner = post.author_id === currentUserId;
-  const displayName = post.is_anonymous ? `Anonymous ${post.anon_code}` : "You";
+  const displayName = post.is_anonymous
+    ? `Anonymous ${post.anon_code}`
+    : post.author_display_name
+      ? post.author_display_name
+      : isOwner
+        ? "You"
+        : `Anonymous ${post.anon_code}`;
 
   const mutedWord = mutedWords.find((word) => {
     const lower = word.toLowerCase();
