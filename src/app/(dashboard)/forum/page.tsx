@@ -26,6 +26,8 @@ export default function ForumPage() {
 
   const [showFeature, setShowFeature] = useState(true);
   const [checkingFeature, setCheckingFeature] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showMobileInfo, setShowMobileInfo] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -35,6 +37,13 @@ export default function ForumPage() {
       })
       .catch(() => {})
       .finally(() => setCheckingFeature(false));
+  }, []);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
 
   useEffect(() => {
@@ -138,10 +147,12 @@ export default function ForumPage() {
   if (!showFeature) return <FeatureHidden featureName="Discussion Hub" />;
 
   return (
-    <div className="flex gap-5 h-full">
-      <div className="flex-shrink-0" style={{ width: "220px" }}>
-        <ForumSidebar />
-      </div>
+    <div className="flex gap-5">
+      {!isMobile && (
+        <div className="flex-shrink-0" style={{ width: "220px" }}>
+          <ForumSidebar />
+        </div>
+      )}
 
       <div className="flex flex-col gap-4 flex-1 min-w-0">
         <div className="flex items-start justify-between">
@@ -152,6 +163,22 @@ export default function ForumPage() {
             <p className="text-sm mt-1" style={{ color: "#666" }}>
               A space for the CIIT community — share, ask, and connect.
             </p>
+            {isMobile && (
+              <button
+                type="button"
+                onClick={() => setShowMobileInfo((v) => !v)}
+                className="text-xs mt-2 self-start px-2.5 py-1 rounded-lg"
+                style={{
+                  background: "rgba(79,142,247,0.08)",
+                  border: "0.5px solid rgba(79,142,247,0.2)",
+                  color: "#4f8ef7",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                {showMobileInfo ? "Hide info ▲" : "Community info ▼"}
+              </button>
+            )}
           </div>
           <button
             type="button"
@@ -178,6 +205,32 @@ export default function ForumPage() {
             New post
           </button>
         </div>
+
+        {isMobile && showMobileInfo && (
+          <div
+            className="rounded-xl p-4 flex flex-col gap-2 text-xs"
+            style={{
+              background: "#fff",
+              border: "0.5px solid #ebebeb",
+              color: "#666",
+              lineHeight: 1.6,
+            }}
+          >
+            <p className="font-medium" style={{ color: "#1a1a2e" }}>
+              Forum Rules
+            </p>
+            <ul
+              className="flex flex-col gap-1 pl-3"
+              style={{ listStyle: "disc" }}
+            >
+              <li>Be respectful — no harassment or personal attacks.</li>
+              <li>No hate speech, NSFW, or explicit content.</li>
+              <li>Use the correct flair for your post.</li>
+              <li>No doxxing or sharing personal information.</li>
+              <li>Anonymity is not a shield — violations result in a ban.</li>
+            </ul>
+          </div>
+        )}
 
         <div
           className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
@@ -449,9 +502,11 @@ export default function ForumPage() {
         )}
       </div>
 
-      <div className="flex-shrink-0" style={{ width: "220px" }}>
-        <RecentlyViewed />
-      </div>
+      {!isMobile && (
+        <div className="flex-shrink-0" style={{ width: "220px" }}>
+          <RecentlyViewed />
+        </div>
+      )}
     </div>
   );
 }
