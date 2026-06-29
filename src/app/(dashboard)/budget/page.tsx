@@ -139,7 +139,7 @@ export default function BudgetPage() {
 
   // Plan exists — show full budget planner
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -168,16 +168,16 @@ export default function BudgetPage() {
 
       {/* Split layout */}
       <div
-        className="flex gap-4 flex-1 rounded-2xl overflow-hidden"
+        className="flex gap-4 rounded-2xl overflow-hidden"
         style={{
           background: "#fff",
           border: "0.5px solid #ebebeb",
-          minHeight: "500px",
+          minHeight: "600px",
         }}
       >
         {/* Left — Donut + categories */}
         <div
-          className="overflow-y-auto p-5"
+          className="p-5"
           style={{
             width: "300px",
             minWidth: "300px",
@@ -191,7 +191,7 @@ export default function BudgetPage() {
         </div>
 
         {/* Right — Transaction log */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1">
           <TransactionLog
             transactions={transactions}
             categories={categories}
@@ -202,7 +202,7 @@ export default function BudgetPage() {
         </div>
       </div>
 
-      {/* ── Daily Budget Widget ── */}
+      {/* Daily Budget Widget */}
       <DailyBudgetWidget compact={true} />
     </div>
   );
