@@ -14,13 +14,6 @@ type UserSettings = {
   notify_forum_replies: boolean;
   forum_default_anonymous: boolean;
   forum_show_display_name: boolean;
-  show_tasks: boolean;
-  show_budget: boolean;
-  show_survival: boolean;
-  show_schedule: boolean;
-  show_timer: boolean;
-  show_forum: boolean;
-  show_resources: boolean;
 };
 
 type CalendarSettings = {
@@ -35,13 +28,6 @@ const DEFAULT_SETTINGS: UserSettings = {
   notify_forum_replies: true,
   forum_default_anonymous: true,
   forum_show_display_name: false,
-  show_tasks: true,
-  show_budget: true,
-  show_survival: true,
-  show_schedule: true,
-  show_timer: true,
-  show_forum: true,
-  show_resources: true,
 };
 
 export default function SettingsPage() {
@@ -49,6 +35,14 @@ export default function SettingsPage() {
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<Tab>("general");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [savedSettings, setSavedSettings] =
     useState<UserSettings>(DEFAULT_SETTINGS);
@@ -68,31 +62,24 @@ export default function SettingsPage() {
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [pendingNavUrl, setPendingNavUrl] = useState<string | null>(null);
 
-  // ── Muted words state ──
-  const [mutedWords, setMutedWords] = useState<string[]>([]);
-  const [newMutedWord, setNewMutedWord] = useState("");
-  const [savingMuted, setSavingMuted] = useState(false);
-  const mutedInputRef = useRef<HTMLInputElement>(null);
-
   const originalPushStateRef = useRef<typeof window.history.pushState | null>(
     null,
   );
   const navigatingRef = useRef(false);
 
+  // Compute whether there are unsaved changes
   const isDirty = JSON.stringify(settings) !== JSON.stringify(savedSettings);
 
-  // ── Fetch settings + muted words ──
+  // ── Fetch settings ──
   const fetchSettings = useCallback(async () => {
     try {
-      const [settingsRes, canvasRes, mutedRes] = await Promise.all([
+      const [settingsRes, canvasRes] = await Promise.all([
         fetch("/api/settings"),
         fetch("/api/schedule/canvas"),
-        fetch("/api/settings/muted-words"),
       ]);
-      const [settingsData, canvasData, mutedData] = await Promise.all([
+      const [settingsData, canvasData] = await Promise.all([
         settingsRes.json(),
         canvasRes.json(),
-        mutedRes.json(),
       ]);
       if (settingsData.settings) {
         const loaded: UserSettings = {
@@ -107,7 +94,6 @@ export default function SettingsPage() {
       setCalendarSettings({
         canvas_ical_url: canvasData.hasUrl ? "connected" : null,
       });
-      setMutedWords(mutedData.muted_words ?? []);
     } catch (err) {
       console.error("Fetch settings error:", err);
     } finally {
@@ -119,7 +105,7 @@ export default function SettingsPage() {
     if (session) fetchSettings();
   }, [session, fetchSettings]);
 
-  // ── Browser navigation guard ──
+  // ── Browser navigation guard (tab close / reload) ──
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (isDirty) {
@@ -131,7 +117,7 @@ export default function SettingsPage() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty]);
 
-  // ── In-app navigation guard ──
+  // ── In-app navigation guard (sidebar links) ──
   useEffect(() => {
     if (!isDirty) {
       if (originalPushStateRef.current) {
@@ -140,11 +126,13 @@ export default function SettingsPage() {
       }
       return;
     }
+
     if (!originalPushStateRef.current) {
       originalPushStateRef.current = window.history.pushState.bind(
         window.history,
       );
     }
+
     window.history.pushState = function (
       state: unknown,
       unused: string,
@@ -157,6 +145,7 @@ export default function SettingsPage() {
       setPendingNavUrl(url?.toString() ?? null);
       setShowUnsavedModal(true);
     };
+
     return () => {
       if (originalPushStateRef.current) {
         window.history.pushState = originalPushStateRef.current;
@@ -178,9 +167,7 @@ export default function SettingsPage() {
       if (res.ok) {
         setSavedSettings(settings);
         setSaved(true);
-        setTimeout(() => {
-          window.location.reload();
-        }, 800);
+        setTimeout(() => setSaved(false), 3000);
       }
     } catch (err) {
       console.error("Save error:", err);
@@ -189,12 +176,16 @@ export default function SettingsPage() {
     }
   };
 
-  const handleCancel = () => setSettings(savedSettings);
+  const handleCancel = () => {
+    setSettings(savedSettings);
+  };
 
   const handleConfirmLeave = () => {
     setShowUnsavedModal(false);
     navigatingRef.current = true;
-    if (pendingNavUrl) router.push(pendingNavUrl);
+    if (pendingNavUrl) {
+      router.push(pendingNavUrl);
+    }
     setTimeout(() => {
       navigatingRef.current = false;
     }, 200);
@@ -250,46 +241,13 @@ export default function SettingsPage() {
     }
   };
 
-  // ── Muted words handlers ──
-  const saveMutedWords = async (words: string[]) => {
-    setSavingMuted(true);
-    try {
-      await fetch("/api/settings/muted-words", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ muted_words: words }),
-      });
-    } catch (err) {
-      console.error("Save muted words error:", err);
-    } finally {
-      setSavingMuted(false);
-    }
-  };
-
-  const handleAddMutedWord = async () => {
-    const word = newMutedWord.trim().toLowerCase();
-    if (!word || mutedWords.includes(word)) {
-      setNewMutedWord("");
-      return;
-    }
-    const updated = [...mutedWords, word];
-    setMutedWords(updated);
-    setNewMutedWord("");
-    await saveMutedWords(updated);
-  };
-
-  const handleRemoveMutedWord = async (word: string) => {
-    const updated = mutedWords.filter((w) => w !== word);
-    setMutedWords(updated);
-    await saveMutedWords(updated);
-  };
-
   const update = <K extends keyof UserSettings>(
     key: K,
     value: UserSettings[K],
   ) => setSettings((prev) => ({ ...prev, [key]: value }));
 
   // ── Reusable UI pieces ──
+
   const Toggle = ({
     value,
     onChange,
@@ -342,13 +300,16 @@ export default function SettingsPage() {
     noBorder?: boolean;
   }) => (
     <div
-      className="flex items-center"
       style={{
         padding: "18px 0",
         borderBottom: noBorder ? "none" : "0.5px solid #f5f4f0",
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        alignItems: isMobile ? "flex-start" : "center",
+        gap: isMobile ? "10px" : "0",
       }}
     >
-      <div style={{ width: "200px", flexShrink: 0 }}>
+      <div style={{ width: isMobile ? "100%" : "200px", flexShrink: 0 }}>
         <p style={{ fontSize: "13px", color: "#1a1a2e", fontWeight: 500 }}>
           {label}
         </p>
@@ -365,7 +326,7 @@ export default function SettingsPage() {
           </p>
         )}
       </div>
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, width: isMobile ? "100%" : undefined }}>
         {value && (
           <div style={{ fontSize: "13px", color: "#555" }}>{value}</div>
         )}
@@ -388,6 +349,7 @@ export default function SettingsPage() {
     </p>
   );
 
+  // Save / Cancel bar — only renders when there are unsaved changes
   const SaveBar = () =>
     isDirty ? (
       <div
@@ -472,8 +434,8 @@ export default function SettingsPage() {
               zIndex: 51,
               background: "#fff",
               borderRadius: "16px",
-              padding: "28px 32px",
-              width: "380px",
+              padding: isMobile ? "24px 20px" : "28px 32px",
+              width: "min(380px, calc(100vw - 32px))",
               boxShadow: "0 8px 40px rgba(0,0,0,0.15)",
             }}
           >
@@ -575,6 +537,7 @@ export default function SettingsPage() {
             Manage your details and personal preferences here.
           </p>
         </div>
+        {/* Unsaved indicator badge */}
         {isDirty && (
           <div
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
@@ -601,7 +564,13 @@ export default function SettingsPage() {
       {/* ── Tabs ── */}
       <div
         className="flex gap-1"
-        style={{ borderBottom: "0.5px solid #ebebeb", marginBottom: "24px" }}
+        style={{
+          borderBottom: "0.5px solid #ebebeb",
+          marginBottom: "24px",
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+        }}
       >
         {tabs.map((tab) => (
           <button
@@ -609,7 +578,7 @@ export default function SettingsPage() {
             type="button"
             onClick={() => setActiveTab(tab.id)}
             style={{
-              padding: "8px 18px",
+              padding: isMobile ? "8px 12px" : "8px 18px",
               border: "none",
               background: "transparent",
               fontSize: "13px",
@@ -623,6 +592,8 @@ export default function SettingsPage() {
                   : "2px solid transparent",
               marginBottom: "-1px",
               transition: "all 0.15s",
+              whiteSpace: "nowrap",
+              flexShrink: 0,
             }}
           >
             {tab.label}
@@ -635,11 +606,13 @@ export default function SettingsPage() {
       ══════════════════════════════════════════ */}
       {activeTab === "general" && (
         <div>
+          {/* Profile section */}
           <SectionTitle title="Profile" />
           <div
             className="rounded-2xl px-6"
             style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
           >
+            {/* Photo */}
             <Row
               label="Photo"
               value={
@@ -696,11 +669,15 @@ export default function SettingsPage() {
                 </button>
               }
             />
+
+            {/* Full name */}
             <Row
               label="Name"
               desc="Synced from your Google account"
               value={session?.user?.name ?? "—"}
             />
+
+            {/* Display name */}
             <Row
               label="Display name"
               desc="Used in greetings and email notifications"
@@ -724,10 +701,11 @@ export default function SettingsPage() {
                 />
               }
             />
+
+            {/* Email */}
             <Row
               label="Email address"
               noBorder
-              desc="Your CIIT email cannot be changed"
               value={
                 <div className="flex items-center gap-2">
                   <span>{session?.user?.email}</span>
@@ -746,14 +724,17 @@ export default function SettingsPage() {
                   </span>
                 </div>
               }
+              desc="Your CIIT email cannot be changed"
             />
           </div>
 
+          {/* Preferences section */}
           <SectionTitle title="Preferences" />
           <div
             className="rounded-2xl px-6"
             style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
           >
+            {/* Google Calendar */}
             <Row
               label="Google Calendar"
               desc="Connected via your CIIT Google account"
@@ -794,11 +775,25 @@ export default function SettingsPage() {
                 </button>
               }
             />
+
+            {/* Canvas iCal */}
             <div
-              style={{ padding: "18px 0", borderBottom: "0.5px solid #f5f4f0" }}
+              style={{
+                padding: "18px 0",
+                borderBottom: "0.5px solid #f5f4f0",
+              }}
             >
-              <div className="flex items-center">
-                <div style={{ width: "200px", flexShrink: 0 }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: isMobile ? "column" : "row",
+                  alignItems: isMobile ? "flex-start" : "center",
+                  gap: isMobile ? "10px" : "0",
+                }}
+              >
+                <div
+                  style={{ width: isMobile ? "100%" : "200px", flexShrink: 0 }}
+                >
                   <p
                     style={{
                       fontSize: "13px",
@@ -876,10 +871,12 @@ export default function SettingsPage() {
                   )}
                 </div>
               </div>
+
+              {/* Canvas connect form */}
               {showCanvasForm && !calendarSettings.canvas_ical_url && (
                 <div
                   className="flex flex-col gap-2 mt-3"
-                  style={{ marginLeft: "200px" }}
+                  style={{ marginLeft: isMobile ? "0" : "200px" }}
                 >
                   <input
                     type="url"
@@ -948,92 +945,6 @@ export default function SettingsPage() {
                 </div>
               )}
             </div>
-          </div>
-
-          <SectionTitle title="Features" />
-          <div
-            className="rounded-2xl px-6"
-            style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
-          >
-            {[
-              {
-                key: "show_tasks" as const,
-                label: "Task Manager",
-                desc: "Kanban board and list view for managing academic tasks",
-              },
-              {
-                key: "show_schedule" as const,
-                label: "Schedule",
-                desc: "Calendar with Google Calendar and Canvas deadline sync",
-              },
-              {
-                key: "show_timer" as const,
-                label: "Focus Timer",
-                desc: "Pomodoro-based study sessions and streak tracking",
-              },
-              {
-                key: "show_budget" as const,
-                label: "Budget Planner",
-                desc: "Monthly budget allocation and transaction tracking",
-              },
-              {
-                key: "show_survival" as const,
-                label: "Daily Budget",
-                desc: "Daily spend calculator based on remaining balance",
-              },
-              {
-                key: "show_forum" as const,
-                label: "Discussion Hub",
-                desc: "Anonymous community forum for CIIT students",
-              },
-              {
-                key: "show_resources" as const,
-                label: "Student Resources",
-                desc: "Directory of academic and student support services",
-              },
-            ].map((feature, i, arr) => (
-              <Row
-                key={feature.key}
-                label={feature.label}
-                desc={feature.desc}
-                noBorder={i === arr.length - 1}
-                action={
-                  <Toggle
-                    value={settings[feature.key]}
-                    onChange={(v) => update(feature.key, v)}
-                  />
-                }
-              />
-            ))}
-          </div>
-
-          <div
-            className="flex items-start gap-2 px-4 py-3 rounded-xl mt-3 text-xs"
-            style={{
-              background: "rgba(186,117,23,0.05)",
-              border: "0.5px solid rgba(186,117,23,0.15)",
-              color: "#BA7517",
-              lineHeight: 1.55,
-            }}
-          >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              style={{ flexShrink: 0, marginTop: "1px" }}
-            >
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-              <line x1="12" y1="9" x2="12" y2="13" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-            <p>
-              Hidden features are removed from the sidebar. If you navigate
-              directly to a hidden feature&apos;s URL, you&apos;ll be shown an
-              option to re-enable it from Settings.
-            </p>
           </div>
 
           <SaveBar />
@@ -1116,6 +1027,7 @@ export default function SettingsPage() {
               }
             />
           </div>
+
           <SaveBar />
         </div>
       )}
@@ -1177,143 +1089,6 @@ export default function SettingsPage() {
               Moderators can always identify the author of any post or comment.
               Anonymity protects you from other students, not from platform
               administrators.
-            </p>
-          </div>
-
-          {/* ── Muted Words ── */}
-          <SectionTitle title="Word filter" />
-          <div
-            className="rounded-2xl p-5 flex flex-col gap-4"
-            style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
-          >
-            <div>
-              <p
-                style={{
-                  fontSize: "13px",
-                  fontWeight: 500,
-                  color: "#1a1a2e",
-                  marginBottom: "4px",
-                }}
-              >
-                Muted words
-              </p>
-              <p style={{ fontSize: "12px", color: "#999", lineHeight: 1.5 }}>
-                Posts containing these words will show a notice instead of their
-                content. You can reveal them individually with the Show button.
-                Up to 50 words.
-              </p>
-            </div>
-
-            {/* Word chips */}
-            {mutedWords.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {mutedWords.map((word) => (
-                  <div
-                    key={word}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-full"
-                    style={{
-                      background: "rgba(186,117,23,0.08)",
-                      border: "0.5px solid rgba(186,117,23,0.2)",
-                    }}
-                  >
-                    <span style={{ fontSize: "12px", color: "#BA7517" }}>
-                      {word}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveMutedWord(word)}
-                      disabled={savingMuted}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: savingMuted ? "not-allowed" : "pointer",
-                        color: "#BA7517",
-                        padding: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        opacity: savingMuted ? 0.5 : 1,
-                      }}
-                    >
-                      <svg
-                        width="11"
-                        height="11"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                      >
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {mutedWords.length === 0 && (
-              <p
-                style={{ fontSize: "12px", color: "#bbb", fontStyle: "italic" }}
-              >
-                No muted words yet.
-              </p>
-            )}
-
-            {/* Add word input */}
-            {mutedWords.length < 50 && (
-              <div className="flex gap-2">
-                <input
-                  ref={mutedInputRef}
-                  type="text"
-                  value={newMutedWord}
-                  onChange={(e) => setNewMutedWord(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleAddMutedWord();
-                    if (e.key === "Escape") setNewMutedWord("");
-                  }}
-                  placeholder="Add a word to mute..."
-                  style={{
-                    flex: 1,
-                    padding: "8px 12px",
-                    borderRadius: "9px",
-                    border: "0.5px solid #e5e5e5",
-                    background: "#fafafa",
-                    fontSize: "13px",
-                    fontFamily: "inherit",
-                    color: "#1a1a2e",
-                    outline: "none",
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddMutedWord}
-                  disabled={!newMutedWord.trim() || savingMuted}
-                  style={{
-                    padding: "8px 16px",
-                    borderRadius: "9px",
-                    border: "none",
-                    background:
-                      !newMutedWord.trim() || savingMuted
-                        ? "#e5e5e5"
-                        : "#1a1a2e",
-                    color:
-                      !newMutedWord.trim() || savingMuted ? "#bbb" : "#fff",
-                    fontSize: "13px",
-                    fontWeight: 500,
-                    cursor:
-                      !newMutedWord.trim() || savingMuted
-                        ? "not-allowed"
-                        : "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  {savingMuted ? "..." : "Add"}
-                </button>
-              </div>
-            )}
-
-            <p style={{ fontSize: "11px", color: "#bbb" }}>
-              {mutedWords.length}/50 words used
             </p>
           </div>
 
