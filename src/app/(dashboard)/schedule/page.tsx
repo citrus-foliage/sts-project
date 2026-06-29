@@ -246,9 +246,9 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="flex gap-5 h-full">
+    <div className="flex gap-5 items-start">
       {/* Main calendar */}
-      <div className="flex flex-col gap-4 flex-1 min-w-0">
+      <div className="flex flex-col gap-4 flex-1 min-w-0 min-h-0">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
@@ -304,7 +304,7 @@ export default function SchedulePage() {
 
         {/* Calendar */}
         <div
-          className="rounded-2xl overflow-hidden flex-1 bg-white"
+          className="rounded-2xl overflow-hidden bg-white"
           style={{ border: "0.5px solid #ebebeb" }}
         >
           <style>{`
@@ -362,8 +362,10 @@ export default function SchedulePage() {
                 right: "dayGridMonth,timeGridWeek,timeGridDay",
               }}
               events={events}
-              height="calc(100vh - 200px)"
+              height="auto"
               scrollTime="00:00:00"
+              slotMinTime="00:00:00"
+              slotMaxTime="24:00:00"
               eventClick={(info) => {
                 if (info.event.url) {
                   info.jsEvent.preventDefault();
