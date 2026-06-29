@@ -5,7 +5,7 @@ import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Icons
+// ── Icons ──
 function GridIcon() {
   return (
     <svg
@@ -187,29 +187,22 @@ function LogoutIcon() {
   );
 }
 
-// Panel toggle icon — shows sidebar open/closed state
-function PanelIcon({ collapsed }: { collapsed: boolean }) {
+// Chevron arrow — flips direction based on collapsed state
+function ChevronIcon({ collapsed }: { collapsed: boolean }) {
   return (
     <svg
-      width="16"
-      height="16"
+      width="14"
+      height="14"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
+      style={{
+        transform: collapsed ? "rotate(180deg)" : "rotate(0deg)",
+        transition: "transform 0.3s ease",
+      }}
     >
-      {/* Outer border */}
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      {/* Left panel divider */}
-      <line x1="9" y1="3" x2="9" y2="21" />
-      {/* Arrow inside right panel — points left when expanded, right when collapsed */}
-      {collapsed ? (
-        // Collapsed: arrow pointing right (expand)
-        <polyline points="12 9 16 12 12 15" />
-      ) : (
-        // Expanded: arrow pointing left (collapse)
-        <polyline points="14 9 10 12 14 15" />
-      )}
+      <polyline points="15 18 9 12 15 6" />
     </svg>
   );
 }
@@ -247,42 +240,28 @@ const bottomNav = [
   { label: "Settings", href: "/settings", icon: <SettingsIcon /> },
 ];
 
-const FEATURE_KEYS: Record<string, string> = {
-  "/tasks": "show_tasks",
-  "/budget": "show_budget",
-  "/survival": "show_survival",
-  "/schedule": "show_schedule",
-  "/timer": "show_timer",
-  "/forum": "show_forum",
-  "/resources": "show_resources",
-};
-
 export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
+  // Controls whether the sidebar is collapsed to icon-only width
   const [collapsed, setCollapsed] = useState(false);
+  // Controls whether the sidebar is visible on mobile
+  const [mobileOpen, setMobileOpen] = useState(false);
+  // True when screen width is below lg breakpoint (1024px)
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("sidebar_collapsed");
-    if (saved === "true") setCollapsed(true);
-  }, []);
-  const [featureSettings, setFeatureSettings] = useState<
-    Record<string, boolean>
-  >({});
-
-  useEffect(() => {
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.settings) setFeatureSettings(d.settings);
-      })
-      .catch(() => {});
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
 
   const isActive = (href: string) => pathname === href;
 
   const handleSignOut = async () => {
+    console.log("Sign out clicked");
     setSigningOut(true);
     try {
       await signOut({ callbackUrl: "/login", redirect: true });
@@ -303,31 +282,85 @@ export default function Sidebar() {
       .toUpperCase() ?? "SL";
 
   return (
-    <aside
-      className="flex flex-col h-screen sticky top-0"
-      style={{
-        width: collapsed ? "52px" : "220px",
-        minWidth: collapsed ? "52px" : "220px",
-        transition: "width 0.3s ease, min-width 0.3s ease",
-        background: "#0f1117",
-        borderRight: "0.5px solid rgba(255,255,255,0.06)",
-        overflow: "hidden",
-      }}
-    >
-      {/* Logo + User */}
-      <div
-        className="px-4 pt-5 pb-2"
-        style={{ borderBottom: "0.5px solid rgba(255,255,255,0.07)" }}
-      >
-        {/* Top row: logo + panel toggle aligned together */}
-        <div
-          className="flex items-center mb-3"
+    <>
+      {/* Hamburger button — only shown on mobile when sidebar is closed */}
+      {isMobile && !mobileOpen && (
+        <button
+          onClick={() => setMobileOpen(true)}
           style={{
-            justifyContent: collapsed ? "center" : "space-between",
+            position: "fixed",
+            top: "14px",
+            left: "14px",
+            zIndex: 60,
+            background: "#0f1117",
+            border: "none",
+            borderRadius: "8px",
+            padding: "6px 8px",
+            cursor: "pointer",
+            color: "white",
           }}
         >
-          {/* Logo mark — hidden when collapsed so toggle centers cleanly */}
-          {!collapsed && (
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+      )}
+
+      {/* Dark overlay — only on mobile when sidebar is open */}
+      {isMobile && mobileOpen && (
+        <div
+          onClick={() => setMobileOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            zIndex: 40,
+          }}
+        />
+      )}
+
+      <aside
+        className="flex flex-col h-screen"
+        style={{
+          // On mobile: fixed panel that slides in/out
+          // On desktop: normal flow with animated width
+          ...(isMobile
+            ? {
+                position: "fixed",
+                top: 0,
+                left: 0,
+                bottom: 0,
+                zIndex: 50,
+                width: "220px",
+                transform: mobileOpen ? "translateX(0)" : "translateX(-100%)",
+                transition: "transform 0.3s ease",
+              }
+            : {
+                width: collapsed ? "52px" : "220px",
+                minWidth: collapsed ? "52px" : "220px",
+                transition: "width 0.3s ease, min-width 0.3s ease",
+              }),
+          background: "#0f1117",
+          borderRight: "0.5px solid rgba(255,255,255,0.06)",
+          overflow: "hidden",
+        }}
+      >
+        {/* ── Logo + User ── */}
+        <div
+          className="px-4 pt-5 pb-2"
+          style={{ borderBottom: "0.5px solid rgba(255,255,255,0.07)" }}
+        >
+          {/* Workspace */}
+          <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg mb-3">
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
               style={{
@@ -336,111 +369,105 @@ export default function Sidebar() {
             >
               SL
             </div>
-          )}
+            {!collapsed && (
+              <span
+                className="text-sm font-medium truncate"
+                style={{ color: "#e8e8ec" }}
+              >
+                Student Life Manager
+              </span>
+            )}
+          </div>
 
-          {/* App name — hidden when collapsed */}
-          {!collapsed && (
-            <span
-              className="text-sm font-medium truncate flex-1 ml-2.5"
-              style={{ color: "#e8e8ec" }}
+          {/* User pill */}
+          <div className="flex items-center gap-2 px-2 py-1">
+            <div
+              className="w-6 h-6 rounded-full flex items-center justify-center text-white flex-shrink-0"
+              style={{
+                background: "#4f8ef7",
+                fontSize: "10px",
+                fontWeight: 600,
+              }}
             >
-              Student Life Manager
-            </span>
-          )}
+              {initials}
+            </div>
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p
+                  className="text-xs font-medium truncate"
+                  style={{ color: "#c0c0cc" }}
+                >
+                  {firstName}
+                </p>
+                <p
+                  className="truncate"
+                  style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)" }}
+                >
+                  {email}
+                </p>
+              </div>
+            )}
+          </div>
 
-          {/* Panel toggle — sole element when collapsed so it centers naturally */}
+          {/* Collapse toggle — lives in the fixed header so it's always visible when scrolling */}
           <button
             type="button"
             onClick={() => {
-              const next = !collapsed;
-              setCollapsed(next);
-              localStorage.setItem("sidebar_collapsed", String(next));
+              if (isMobile) {
+                setMobileOpen(false);
+              } else {
+                setCollapsed((prev) => !prev);
+              }
             }}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg w-full mt-2 transition-colors`}
             style={{
               background: "transparent",
               border: "none",
               cursor: "pointer",
-              color: "rgba(255,255,255,0.25)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "4px",
-              borderRadius: "6px",
-              flexShrink: 0,
-              width: collapsed ? "100%" : "auto",
-              marginLeft: collapsed ? "0" : "4px",
-              transition: "color 0.15s",
+              fontFamily: "inherit",
+              textAlign: "left",
             }}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.color =
-                "rgba(255,255,255,0.6)")
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.color =
-                "rgba(255,255,255,0.25)")
-            }
+            title={collapsed ? "Expand sidebar" : undefined}
           >
-            <PanelIcon collapsed={collapsed} />
+            <span
+              style={{
+                color: "rgba(255,255,255,0.25)",
+                fontSize: "16px",
+                width: "18px",
+                textAlign: "center",
+              }}
+            >
+              <ChevronIcon collapsed={collapsed} />
+            </span>
+            {!collapsed && (
+              <span
+                className="text-sm"
+                style={{ color: "rgba(255,255,255,0.35)" }}
+              >
+                Collapse Sidebar
+              </span>
+            )}
           </button>
         </div>
 
-        {/* User pill */}
-        <div
-          className="flex items-center gap-2 px-2 py-1"
-          style={{ justifyContent: collapsed ? "center" : "flex-start" }}
-        >
-          {/* Avatar — always visible */}
-          <div
-            className="w-6 h-6 rounded-full flex items-center justify-center text-white flex-shrink-0"
-            style={{ background: "#4f8ef7", fontSize: "10px", fontWeight: 600 }}
-          >
-            {initials}
-          </div>
-          {/* Name + email — hidden when collapsed */}
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p
-                className="text-xs font-medium truncate"
-                style={{ color: "#c0c0cc" }}
-              >
-                {firstName}
-              </p>
-              <p
-                className="truncate"
-                style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)" }}
-              >
-                {email}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-2 px-2.5">
-        {navigation.map((group, gi) => (
-          <div key={gi} className="mb-1">
-            {group.label && !collapsed && (
-              <p
-                className="px-2 mb-1 mt-3 uppercase tracking-widest"
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 500,
-                  color: "rgba(255,255,255,0.25)",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                {group.label}
-              </p>
-            )}
-            {group.items
-              .filter((item) => {
-                const key = FEATURE_KEYS[item.href];
-                if (!key) return true;
-                return featureSettings[key] !== false;
-              })
-              .map((item) => {
+        {/* ── Navigation ── */}
+        <nav className="flex-1 overflow-y-auto py-2 px-2.5">
+          {navigation.map((group, gi) => (
+            <div key={gi} className="mb-1">
+              {group.label && !collapsed && (
+                <p
+                  className="px-2 mb-1 mt-3 uppercase tracking-widest"
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 500,
+                    color: "rgba(255,255,255,0.25)",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  {group.label}
+                </p>
+              )}
+              {group.items.map((item) => {
                 const active = isActive(item.href);
                 return (
                   <Link
@@ -470,10 +497,9 @@ export default function Sidebar() {
                     <span
                       style={{
                         color: active ? "#4f8ef7" : "rgba(255,255,255,0.35)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
+                        fontSize: "16px",
                         width: "18px",
+                        textAlign: "center",
                         flexShrink: 0,
                       }}
                     >
@@ -492,108 +518,105 @@ export default function Sidebar() {
                   </Link>
                 );
               })}
-            {gi < navigation.length - 1 && group.label && (
-              <div
-                className="mx-2 mt-2"
-                style={{
-                  height: "0.5px",
-                  background: "rgba(255,255,255,0.07)",
-                }}
-              />
-            )}
-          </div>
-        ))}
-      </nav>
+              {gi < navigation.length - 1 && group.label && (
+                <div
+                  className="mx-2 mt-2"
+                  style={{
+                    height: "0.5px",
+                    background: "rgba(255,255,255,0.07)",
+                  }}
+                />
+              )}
+            </div>
+          ))}
+        </nav>
 
-      {/* Bottom Nav */}
-      <div
-        className="px-2.5 py-3"
-        style={{ borderTop: "0.5px solid rgba(255,255,255,0.07)" }}
-      >
-        {bottomNav.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg mb-0.5 transition-colors`}
-            style={{ textDecoration: "none" }}
-            title={collapsed ? item.label : undefined}
+        {/* ── Bottom Nav ── */}
+        <div
+          className="px-2.5 py-3"
+          style={{ borderTop: "0.5px solid rgba(255,255,255,0.07)" }}
+        >
+          {bottomNav.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg mb-0.5 transition-colors`}
+              style={{ textDecoration: "none" }}
+              title={collapsed ? item.label : undefined}
+            >
+              <span
+                style={{
+                  color: "rgba(255,255,255,0.35)",
+                  fontSize: "16px",
+                  width: "18px",
+                  textAlign: "center",
+                }}
+              >
+                {item.icon}
+              </span>
+              {!collapsed && (
+                <span
+                  className="text-sm"
+                  style={{ color: "rgba(255,255,255,0.55)" }}
+                >
+                  {item.label}
+                </span>
+              )}
+            </Link>
+          ))}
+
+          {/* Sign out */}
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg w-full mt-1 transition-colors`}
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: signingOut ? "not-allowed" : "pointer",
+              fontFamily: "inherit",
+              textAlign: "left",
+              opacity: signingOut ? 0.5 : 1,
+              position: "relative",
+              zIndex: 10,
+            }}
+            title={collapsed ? "Sign out" : undefined}
           >
             <span
               style={{
-                color: "rgba(255,255,255,0.35)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                color: "rgba(255,255,255,0.25)",
+                fontSize: "16px",
                 width: "18px",
-                flexShrink: 0,
+                textAlign: "center",
               }}
             >
-              {item.icon}
+              <LogoutIcon />
             </span>
             {!collapsed && (
               <span
                 className="text-sm"
-                style={{ color: "rgba(255,255,255,0.55)" }}
+                style={{ color: "rgba(255,255,255,0.35)" }}
               >
-                {item.label}
+                {signingOut ? "Signing out..." : "Sign out"}
               </span>
             )}
-          </Link>
-        ))}
+          </button>
 
-        {/* Sign out */}
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={signingOut}
-          className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg w-full mt-1 transition-colors`}
-          style={{
-            background: "transparent",
-            border: "none",
-            cursor: signingOut ? "not-allowed" : "pointer",
-            fontFamily: "inherit",
-            textAlign: "left",
-            opacity: signingOut ? 0.5 : 1,
-            position: "relative",
-            zIndex: 10,
-          }}
-          title={collapsed ? "Sign out" : undefined}
-        >
-          <span
-            style={{
-              color: "rgba(255,255,255,0.25)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "18px",
-              flexShrink: 0,
-            }}
-          >
-            <LogoutIcon />
-          </span>
           {!collapsed && (
-            <span
-              className="text-sm"
-              style={{ color: "rgba(255,255,255,0.35)" }}
+            <p
+              className="text-center mt-3"
+              style={{
+                fontSize: "10px",
+                color: "rgba(255,255,255,0.2)",
+                fontFamily: "monospace",
+              }}
             >
-              {signingOut ? "Signing out..." : "Sign out"}
-            </span>
+              Group 2 · STS
+            </p>
           )}
-        </button>
-
-        {!collapsed && (
-          <p
-            className="text-center mt-3"
-            style={{
-              fontSize: "10px",
-              color: "rgba(255,255,255,0.2)",
-              fontFamily: "monospace",
-            }}
-          >
-            Group 2 · STS
-          </p>
-        )}
-      </div>
-    </aside>
+        </div>
+      </aside>
+    </>
   );
 }
