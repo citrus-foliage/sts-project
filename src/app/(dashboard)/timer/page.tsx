@@ -52,6 +52,8 @@ export default function TimerPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [todaySessions, setTodaySessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showFeature, setShowFeature] = useState(true);
+  const [checkingFeature, setCheckingFeature] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
 
   // Timer state
@@ -62,13 +64,21 @@ export default function TimerPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [sessionCount, setSessionCount] = useState(0);
   const [currentSessionStarted, setCurrentSessionStarted] = useState(false);
-  const [showFeature, setShowFeature] = useState(true);
-  const [checkingFeature, setCheckingFeature] = useState(true);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
 
-  // Fetch initial data
+  // ── Fetch initial data ──
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.settings?.show_timer === false) setShowFeature(false);
+      })
+      .catch(() => {})
+      .finally(() => setCheckingFeature(false));
+  }, []);
+
   const fetchData = useCallback(async () => {
     try {
       const [settingsRes, statsRes, sessionsRes] = await Promise.all([
@@ -98,17 +108,7 @@ export default function TimerPage() {
     fetchData();
   }, [fetchData]);
 
-  useEffect(() => {
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.settings?.show_timer === false) setShowFeature(false);
-      })
-      .catch(() => {})
-      .finally(() => setCheckingFeature(false));
-  }, []);
-
-  // Timer logic
+  // ── Timer logic ──
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
@@ -174,6 +174,7 @@ export default function TimerPage() {
         const newCount = sessionCount + 1;
         setSessionCount(newCount);
 
+        // Determine next session type
         const nextType =
           newCount % settings.sessions_before_long_break === 0
             ? "long_break"
@@ -267,7 +268,7 @@ export default function TimerPage() {
     setShowSettings(false);
   };
 
-  // Computed display values
+  // ── Computed display values ──
   const totalDuration =
     sessionType === "focus"
       ? settings.focus_duration * 60
@@ -292,7 +293,13 @@ export default function TimerPage() {
 
   const circumference = 2 * Math.PI * 90;
 
-  if (checkingFeature) return null;
+  if (checkingFeature) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p style={{ fontSize: "13px", color: "#999" }}>Loading...</p>
+      </div>
+    );
+  }
 
   if (!showFeature) {
     return <FeatureHidden featureName="Focus Timer" />;
@@ -325,7 +332,7 @@ export default function TimerPage() {
 
   return (
     <div className="flex flex-col gap-5 max-w-2xl mx-auto">
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold" style={{ color: "#1a1a2e" }}>
@@ -362,7 +369,7 @@ export default function TimerPage() {
         </button>
       </div>
 
-      {/* Session type tabs */}
+      {/* ── Session type tabs ── */}
       <div
         className="flex rounded-2xl p-1 gap-1"
         style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
@@ -397,7 +404,7 @@ export default function TimerPage() {
         ))}
       </div>
 
-      {/* Timer display */}
+      {/* ── Timer display ── */}
       <div
         className="rounded-2xl flex flex-col items-center gap-6 py-10 px-6"
         style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
@@ -599,11 +606,8 @@ export default function TimerPage() {
         </p>
       </div>
 
-      {/* Stats row */}
-      <div
-        className="grid gap-3"
-        style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
-      >
+      {/* ── Stats row ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           {
             label: "Today's sessions",
@@ -703,7 +707,7 @@ export default function TimerPage() {
         ))}
       </div>
 
-      {/* Today's session log */}
+      {/* ── Today's session log ── */}
       {todaySessions.length > 0 && (
         <div
           className="rounded-2xl overflow-hidden"
