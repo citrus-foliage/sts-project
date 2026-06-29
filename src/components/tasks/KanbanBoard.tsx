@@ -28,11 +28,21 @@ export default function KanbanBoard({ tasks, onRefresh }: Props) {
   const [dropPosition, setDropPosition] = useState<"above" | "below">("below");
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
 
+  // Mobile responsive state
+  const [isMobile, setIsMobile] = useState(false);
+
   const dragOverRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setLocalTasks(tasks);
   }, [tasks]);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const handleStatusChange = async (id: string, status: TaskStatus) => {
     setLocalTasks((prev) =>
@@ -131,35 +141,27 @@ export default function KanbanBoard({ tasks, onRefresh }: Props) {
 
   const handleDropOnTask = async (targetTask: Task) => {
     if (!draggedTaskId || draggedTaskId === targetTask.id) return;
-
     const draggedTask = localTasks.find((t) => t.id === draggedTaskId);
     if (!draggedTask) return;
-
     const sameColumn = draggedTask.status === targetTask.status;
-
     if (sameColumn) {
       const columnTasks = localTasks
         .filter((t) => t.status === targetTask.status)
         .sort((a, b) => a.position - b.position);
-
       const withoutDragged = columnTasks.filter((t) => t.id !== draggedTaskId);
       const targetIndex = withoutDragged.findIndex(
         (t) => t.id === targetTask.id,
       );
       const insertIndex =
         dropPosition === "above" ? targetIndex : targetIndex + 1;
-
       withoutDragged.splice(insertIndex, 0, draggedTask);
-
       const reordered = withoutDragged.map((t, i) => ({ ...t, position: i }));
-
       setLocalTasks((prev) => {
         const otherColumnTasks = prev.filter(
           (t) => t.status !== targetTask.status,
         );
         return [...otherColumnTasks, ...reordered];
       });
-
       await Promise.all(
         reordered.map((t) =>
           fetch(`/api/tasks/${t.id}`, {
@@ -173,7 +175,6 @@ export default function KanbanBoard({ tasks, onRefresh }: Props) {
       const targetColumnTasks = localTasks
         .filter((t) => t.status === targetTask.status)
         .sort((a, b) => a.position - b.position);
-
       const withoutDragged = targetColumnTasks.filter(
         (t) => t.id !== draggedTaskId,
       );
@@ -182,23 +183,19 @@ export default function KanbanBoard({ tasks, onRefresh }: Props) {
       );
       const insertIndex =
         dropPosition === "above" ? targetIndex : targetIndex + 1;
-
       const movedTask = {
         ...draggedTask,
         status: targetTask.status,
         position: insertIndex,
       };
-
       withoutDragged.splice(insertIndex, 0, movedTask);
       const reordered = withoutDragged.map((t, i) => ({ ...t, position: i }));
-
       setLocalTasks((prev) => {
         const others = prev.filter(
           (t) => t.id !== draggedTaskId && t.status !== targetTask.status,
         );
         return [...others, ...reordered];
       });
-
       await fetch(`/api/tasks/${draggedTaskId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -208,7 +205,6 @@ export default function KanbanBoard({ tasks, onRefresh }: Props) {
         }),
       });
     }
-
     setDraggedTaskId(null);
     setDragOverTaskId(null);
     setDragSourceColumn(null);
@@ -217,25 +213,20 @@ export default function KanbanBoard({ tasks, onRefresh }: Props) {
 
   const handleDropOnColumn = async (columnId: TaskStatus) => {
     if (!draggedTaskId) return;
-
     const draggedTask = localTasks.find((t) => t.id === draggedTaskId);
     if (!draggedTask || draggedTask.status === columnId) return;
-
     const colTasks = localTasks.filter((t) => t.status === columnId);
     const position = colTasks.length;
-
     setLocalTasks((prev) =>
       prev.map((t) =>
         t.id === draggedTaskId ? { ...t, status: columnId, position } : t,
       ),
     );
-
     await fetch(`/api/tasks/${draggedTaskId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: columnId, position }),
     });
-
     setDraggedTaskId(null);
     setDragOverColumn(null);
   };
@@ -330,8 +321,13 @@ export default function KanbanBoard({ tasks, onRefresh }: Props) {
 
       {/* Kanban columns */}
       <div
-        className="flex gap-4 h-full overflow-x-auto"
-        style={{ minHeight: 0 }}
+        className="flex gap-4 overflow-x-auto"
+        style={{
+          minHeight: 0,
+          paddingBottom: "8px",
+          scrollSnapType: isMobile ? "x mandatory" : undefined,
+          WebkitOverflowScrolling: "touch",
+        }}
       >
         {COLUMN_CONFIG.map((column) => {
           const columnTasks = localTasks
@@ -345,7 +341,10 @@ export default function KanbanBoard({ tasks, onRefresh }: Props) {
             <div
               key={column.id}
               className="flex flex-col flex-shrink-0"
-              style={{ width: "280px" }}
+              style={{
+                width: isMobile ? "85vw" : "280px",
+                scrollSnapAlign: isMobile ? "start" : undefined,
+              }}
               onDragOver={(e) => handleDragOverColumn(e, column.id)}
               onDrop={() => handleDropOnColumn(column.id)}
             >
@@ -523,7 +522,6 @@ export default function KanbanBoard({ tasks, onRefresh }: Props) {
                     dragOverTaskId === task.id && dropPosition === "above";
                   const isOverBelow =
                     dragOverTaskId === task.id && dropPosition === "below";
-
                   return (
                     <div
                       key={task.id}
@@ -533,7 +531,6 @@ export default function KanbanBoard({ tasks, onRefresh }: Props) {
                         handleDropOnTask(task);
                       }}
                     >
-                      {/* Drop indicator — above */}
                       {isOverAbove && draggedTaskId !== task.id && (
                         <div
                           style={{
@@ -545,13 +542,11 @@ export default function KanbanBoard({ tasks, onRefresh }: Props) {
                           }}
                         />
                       )}
-
-                      {/* Task card wrapper with drag events */}
                       <div
-                        draggable
+                        draggable={!isMobile}
                         onDragStart={() => handleDragStart(task)}
                         onDragEnd={handleDragEnd}
-                        style={{ cursor: "grab" }}
+                        style={{ cursor: isMobile ? "default" : "grab" }}
                       >
                         <TaskCard
                           task={task}
@@ -561,8 +556,6 @@ export default function KanbanBoard({ tasks, onRefresh }: Props) {
                           isDragging={draggedTaskId === task.id}
                         />
                       </div>
-
-                      {/* Drop indicator — below */}
                       {isOverBelow && draggedTaskId !== task.id && (
                         <div
                           style={{
@@ -582,10 +575,7 @@ export default function KanbanBoard({ tasks, onRefresh }: Props) {
                 {columnTasks.length === 0 && showFormInColumn !== column.id && (
                   <div
                     className="flex items-center justify-center"
-                    style={{
-                      minHeight: "80px",
-                      color: "#ddd",
-                    }}
+                    style={{ minHeight: "80px", color: "#ddd" }}
                   >
                     <p style={{ fontSize: "12px", color: "#ccc" }}>
                       Drop tasks here
