@@ -106,7 +106,6 @@ export default function TasksPage() {
     filter === "all" ? tasks : tasks.filter((t) => t.status === filter);
 
   const pendingCount = tasks.filter((t) => t.status !== "completed").length;
-
   const completedCount = tasks.filter((t) => t.status === "completed").length;
 
   if (checkingFeature) {
@@ -165,7 +164,7 @@ export default function TasksPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         {/* View toggle */}
         <div
           className="flex rounded-xl p-1 gap-1"
@@ -221,7 +220,7 @@ export default function TasksPage() {
 
         {/* Filter — list view only */}
         {view === "list" && (
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             {(
               [
                 "all",
@@ -260,7 +259,6 @@ export default function TasksPage() {
       {/* Add Task Modal */}
       {showForm && (
         <>
-          {/* Backdrop */}
           <div
             onClick={() => setShowForm(false)}
             style={{
@@ -273,7 +271,6 @@ export default function TasksPage() {
               animation: "fadeIn 0.2s ease",
             }}
           />
-          {/* Modal card */}
           <div
             style={{
               position: "fixed",
@@ -306,10 +303,7 @@ export default function TasksPage() {
             />
           </div>
           <style>{`
-            @keyframes fadeIn {
-              from { opacity: 0; }
-              to { opacity: 1; }
-            }
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
             @keyframes popIn {
               from { opacity: 0; transform: translate(-50%, -48%) scale(0.95); }
               to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
