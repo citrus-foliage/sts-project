@@ -61,10 +61,18 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [hasCanvasUrl, setHasCanvasUrl] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [googleError, setGoogleError] = useState("");
 
   const [showFeature, setShowFeature] = useState(true);
   const [checkingFeature, setCheckingFeature] = useState(true);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -246,7 +254,9 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="flex gap-5 items-start">
+    <div
+      className={isMobile ? "flex flex-col gap-5" : "flex gap-5 items-start"}
+    >
       {/* Main calendar */}
       <div className="flex flex-col gap-4 flex-1 min-w-0 min-h-0">
         {/* Header */}
@@ -496,8 +506,14 @@ export default function SchedulePage() {
         </div>
       </div>
 
-      {/* Right sidebar */}
-      <div className="flex-shrink-0 flex flex-col gap-4 w-60">
+      {/* Right sidebar — below calendar on mobile, fixed-width column on desktop */}
+      <div
+        className={
+          isMobile
+            ? "flex flex-col gap-4 w-full order-first"
+            : "flex-shrink-0 flex flex-col gap-4 w-60"
+        }
+      >
         {showSetup && (
           <CalendarSetup
             hasCanvasUrl={hasCanvasUrl}
