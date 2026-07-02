@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ForumPost, ForumComment, ForumFlair } from "@/types/forum";
+import { censorText } from "@/lib/forum/censor";
 import FlairBadge from "@/components/forum/FlairBadge";
 import CommentThread from "@/components/forum/CommentThread";
 import ForumSidebar from "@/components/forum/ForumSidebar";
@@ -32,9 +33,17 @@ export default function PostDetailPage({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [userDisplayName, setUserDisplayName] = useState<string>("");
+  const [isMobile, setIsMobile] = useState(false);
   const [showDisplayName, setShowDisplayName] = useState<boolean>(false);
 
   const userId = session?.user?.email ?? "";
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     if (!post) return;
@@ -312,6 +321,7 @@ export default function PostDetailPage({
                     onUpvote={handleUpvoteComment}
                     showDisplayName={showDisplayName}
                     userDisplayName={userDisplayName}
+                    threadLocked={true}
                   />
                 ))}
               </div>
@@ -323,44 +333,74 @@ export default function PostDetailPage({
   }
 
   return (
-    <div className="flex gap-5 h-full">
-      {/* Left sidebar — community context */}
-      <div
-        className="flex-shrink-0 flex flex-col gap-3"
-        style={{ width: "220px" }}
-      >
-        {/* Back button */}
-        <button
-          type="button"
-          onClick={() => router.push("/forum")}
-          className="flex items-center gap-2 text-xs w-fit"
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "#666",
-            fontFamily: "inherit",
-            padding: 0,
-          }}
+    <div className="flex gap-5">
+      {/* Left sidebar — desktop only */}
+      {!isMobile && (
+        <div
+          className="flex-shrink-0 flex flex-col gap-3"
+          style={{ width: "220px" }}
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
+          {/* Back button */}
+          <button
+            type="button"
+            onClick={() => router.push("/forum")}
+            className="flex items-center gap-2 text-xs w-fit"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#666",
+              fontFamily: "inherit",
+              padding: 0,
+            }}
           >
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          Back to feed
-        </button>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Back to feed
+          </button>
 
-        <ForumSidebar />
-      </div>
+          <ForumSidebar />
+        </div>
+      )}
 
       {/* Center — post + comments */}
       <div className="flex flex-col gap-4 flex-1 min-w-0">
+        {/* Mobile back button */}
+        {isMobile && (
+          <button
+            type="button"
+            onClick={() => router.push("/forum")}
+            className="flex items-center gap-2 text-xs w-fit"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#666",
+              fontFamily: "inherit",
+              padding: 0,
+            }}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Back to feed
+          </button>
+        )}
         {/* Post card */}
         <div
           className="rounded-2xl"
@@ -445,14 +485,18 @@ export default function PostDetailPage({
                 className="text-lg font-semibold mb-3"
                 style={{ color: "#1a1a2e", lineHeight: 1.35 }}
               >
-                {post.title}
+                {censorText(post.title)}
               </h1>
 
               <p
                 className="text-sm leading-relaxed"
-                style={{ color: "#444", lineHeight: 1.75 }}
+                style={{
+                  color: "#444",
+                  lineHeight: 1.75,
+                  whiteSpace: "pre-wrap",
+                }}
               >
-                {post.body}
+                {censorText(post.body)}
               </p>
 
               {/* Full image */}
@@ -654,6 +698,10 @@ export default function PostDetailPage({
                   onUpvote={handleUpvoteComment}
                   showDisplayName={showDisplayName}
                   userDisplayName={userDisplayName}
+                  threadLocked={
+                    (post as ForumPost & { is_locked?: boolean }).is_locked ??
+                    false
+                  }
                 />
               ))}
             </div>
@@ -661,10 +709,12 @@ export default function PostDetailPage({
         </div>
       </div>
 
-      {/* Right sidebar — recently viewed */}
-      <div className="flex-shrink-0" style={{ width: "220px" }}>
-        <RecentlyViewed excludePostId={postId} />
-      </div>
+      {/* Right sidebar — desktop only */}
+      {!isMobile && (
+        <div className="flex-shrink-0" style={{ width: "220px" }}>
+          <RecentlyViewed excludePostId={postId} />
+        </div>
+      )}
     </div>
   );
 }
