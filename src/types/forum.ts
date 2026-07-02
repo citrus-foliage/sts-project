@@ -12,6 +12,42 @@ export type ForumFlair =
 
 export type PostStatus = "active" | "pending_review" | "removed";
 
+export type AdminRole = "moderator" | "super_admin";
+
+export type UserStandingStatus = "good" | "warned" | "timeout" | "banned";
+
+export type UserStanding = {
+  user_id: string;
+  status: UserStandingStatus;
+  timeout_until: string | null;
+  ban_reason: string | null;
+  actioned_by: string | null;
+  updated_at: string;
+};
+
+export type AdminUser = {
+  user_id: string;
+  display_name: string | null;
+  created_at: string;
+  post_count: number;
+  admin_role: AdminRole | null;
+  standing: UserStanding;
+};
+
+export type ModAction = {
+  id: string;
+  mod_id: string;
+  mod_display_name: string | null;
+  target_user_id: string | null;
+  target_display_name: string | null;
+  target_post_id: string | null;
+  action: string;
+  violated_rules: number[] | null;
+  generated_message: string | null;
+  note: string | null;
+  created_at: string;
+};
+
 export type ForumPost = {
   id: string;
   author_id: string;
