@@ -30,6 +30,23 @@ const ACTION_CONFIG: Record<
   unban: { label: "Unbanned", color: "#639922", bg: "rgba(99,153,34,0.08)" },
   pin: { label: "Pinned", color: "#4f8ef7", bg: "rgba(79,142,247,0.08)" },
   unpin: { label: "Unpinned", color: "#666", bg: "#f5f4f0" },
+  lock: { label: "Locked", color: "#BA7517", bg: "rgba(186,117,23,0.08)" },
+  unlock: { label: "Unlocked", color: "#639922", bg: "rgba(99,153,34,0.08)" },
+};
+
+// Maps each action to a proper past-tense verb for the sentence
+const ACTION_VERB: Record<string, string> = {
+  remove: "removed",
+  restore: "restored",
+  approve: "approved",
+  warn: "warned",
+  timeout: "timed out",
+  ban: "banned",
+  unban: "unbanned",
+  pin: "pinned",
+  unpin: "unpinned",
+  lock: "locked",
+  unlock: "unlocked",
 };
 
 import { FORUM_RULES } from "@/types/forum";
@@ -150,6 +167,8 @@ export default function AdminLogsPage() {
           "ban",
           "unban",
           "pin",
+          "lock",
+          "unlock",
         ].map((a) => (
           <button
             key={a}
@@ -167,7 +186,7 @@ export default function AdminLogsPage() {
               fontFamily: "inherit",
             }}
           >
-            {ACTION_CONFIG[a]?.label ?? "All"}
+            {a === "all" ? "All" : (ACTION_CONFIG[a]?.label ?? a)}
           </button>
         ))}
       </div>
@@ -220,11 +239,7 @@ export default function AdminLogsPage() {
                     <span style={{ color: "#1a1a2e", fontWeight: 500 }}>
                       {log.mod_display_name ?? formatEmail(log.mod_id)}
                     </span>{" "}
-                    {log.action === "unban"
-                      ? "unbanned"
-                      : log.action === "warn"
-                        ? "warned"
-                        : `${log.action}ned`}{" "}
+                    {ACTION_VERB[log.action] ?? log.action}{" "}
                     {log.target_user_id ? (
                       <span style={{ color: "#1a1a2e", fontWeight: 500 }}>
                         {log.target_display_name ??
@@ -233,8 +248,9 @@ export default function AdminLogsPage() {
                     ) : (
                       <span style={{ color: "#bbb" }}>deleted user</span>
                     )}
+                    {"'s "}
                     {log.target_post_id && (
-                      <span style={{ color: "#999" }}> · post</span>
+                      <span style={{ color: "#999" }}>post</span>
                     )}
                   </span>
 
