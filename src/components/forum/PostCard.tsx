@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { ForumPost } from "@/types/forum";
 import FlairBadge from "./FlairBadge";
+import { censorText } from "@/lib/forum/censor";
 
 type Props = {
   post: ForumPost;
@@ -570,13 +571,13 @@ export default function PostCard({
                     cursor: "pointer",
                   }}
                 >
-                  {post.title}
+                  {censorText(post.title)}
                 </p>
                 <p
                   className="text-xs leading-relaxed line-clamp-2 mb-3"
-                  style={{ color: "#666" }}
+                  style={{ color: "#666", whiteSpace: "pre-wrap" }}
                 >
-                  {post.body}
+                  {censorText(post.body)}
                 </p>
                 {post.image_url && (
                   <div

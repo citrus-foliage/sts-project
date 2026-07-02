@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ForumComment } from "@/types/forum";
+import { censorText } from "@/lib/forum/censor";
 
 type Props = {
   comment: ForumComment;
@@ -138,8 +139,11 @@ export default function CommentThread({
             [deleted]
           </p>
         ) : (
-          <p className="text-sm leading-relaxed" style={{ color: "#1a1a2e" }}>
-            {comment.body}
+          <p
+            className="text-sm leading-relaxed"
+            style={{ color: "#1a1a2e", whiteSpace: "pre-wrap" }}
+          >
+            {censorText(comment.body)}
           </p>
         )}
 
