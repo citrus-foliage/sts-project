@@ -275,12 +275,22 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   // True when screen width is below lg breakpoint (1024px)
   const [isMobile, setIsMobile] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/admin/check")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.isAdmin) setIsAdmin(true);
+      })
+      .catch(() => {});
   }, []);
 
   const isActive = (href: string) => pathname === href;
@@ -576,6 +586,55 @@ export default function Sidebar() {
           className="px-2.5 py-3"
           style={{ borderTop: "0.5px solid rgba(255,255,255,0.07)" }}
         >
+          {/* Mod Queue — admin only */}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg mb-0.5 transition-colors`}
+              style={{ textDecoration: "none" }}
+              title={collapsed ? "Moderation" : undefined}
+            >
+              <span
+                style={{
+                  color:
+                    isActive("/admin") || pathname.startsWith("/admin")
+                      ? "#4f8ef7"
+                      : "rgba(255,255,255,0.35)",
+                  fontSize: "16px",
+                  width: "18px",
+                  textAlign: "center",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </span>
+              {!collapsed && (
+                <span
+                  className="text-sm"
+                  style={{
+                    color:
+                      isActive("/admin") || pathname.startsWith("/admin")
+                        ? "#4f8ef7"
+                        : "rgba(255,255,255,0.55)",
+                  }}
+                >
+                  Moderation
+                </span>
+              )}
+            </Link>
+          )}
+
           {bottomNav.map((item) => (
             <Link
               key={item.href}

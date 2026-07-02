@@ -13,11 +13,14 @@ const pageMeta: Record<string, { breadcrumb: string; title: string }> = {
   "/resources": { breadcrumb: "Community", title: "Student Resources" },
   "/achievements": { breadcrumb: "Profile", title: "Achievements" },
   "/settings": { breadcrumb: "Profile", title: "Settings" },
+  "/admin": { breadcrumb: "Admin", title: "Moderation" },
+  "/admin/users": { breadcrumb: "Admin", title: "User Management" },
+  "/admin/logs": { breadcrumb: "Admin", title: "Mod Logs" },
 };
 
 export default function Topbar() {
   const pathname = usePathname();
-  const meta = pageMeta[pathname] ?? { breadcrumb: "", title: "Overview" };
+  const meta = pageMeta[pathname] ?? { breadcrumb: "", title: "" };
 
   return (
     <header
