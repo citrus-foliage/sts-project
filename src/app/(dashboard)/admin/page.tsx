@@ -56,7 +56,7 @@ export default function AdminPage() {
   const [posts, setPosts] = useState<AdminPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [adminRole, setAdminRole] = useState<AdminRole | null>(null);
-  const [statusFilter, setStatusFilter] = useState("pending_review");
+  const [statusFilter, setStatusFilter] = useState("flagged");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [total, setTotal] = useState(0);
@@ -183,7 +183,13 @@ export default function AdminPage() {
           <p className="text-sm mt-1" style={{ color: "#666" }}>
             {adminRole === "super_admin" ? "Super Admin" : "Moderator"} ·{" "}
             {total}{" "}
-            {statusFilter === "all" ? "total" : statusFilter.replace("_", " ")}{" "}
+            {statusFilter === "all"
+              ? "total"
+              : statusFilter === "flagged"
+                ? "flagged"
+                : statusFilter === "pending_review"
+                  ? "auto-hidden"
+                  : statusFilter}{" "}
             posts
           </p>
         </div>
@@ -253,29 +259,31 @@ export default function AdminPage() {
           className="flex rounded-xl p-1 gap-0.5"
           style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
         >
-          {(["all", "pending_review", "active", "removed"] as const).map(
-            (s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setStatusFilter(s)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium"
-                style={{
-                  background: statusFilter === s ? "#f5f4f0" : "transparent",
-                  color: statusFilter === s ? "#1a1a2e" : "#999",
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                {s === "all"
-                  ? "All"
+          {(
+            ["all", "flagged", "pending_review", "active", "removed"] as const
+          ).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatusFilter(s)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium"
+              style={{
+                background: statusFilter === s ? "#f5f4f0" : "transparent",
+                color: statusFilter === s ? "#1a1a2e" : "#999",
+                border: "none",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              {s === "all"
+                ? "All"
+                : s === "flagged"
+                  ? "Has Flags"
                   : s === "pending_review"
-                    ? "Flagged"
+                    ? "Auto-hidden"
                     : s.charAt(0).toUpperCase() + s.slice(1)}
-              </button>
-            ),
-          )}
+            </button>
+          ))}
         </div>
 
         {/* Search */}
@@ -794,61 +802,70 @@ export default function AdminPage() {
               <p className="text-xs font-medium" style={{ color: "#555" }}>
                 Violated rules
               </p>
-              {FORUM_RULES.map((rule, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => toggleRule(i)}
-                  className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl text-left"
-                  style={{
-                    background: selectedRules.includes(i)
-                      ? "rgba(163,45,45,0.06)"
-                      : "#f5f4f0",
-                    border: `0.5px solid ${selectedRules.includes(i) ? "rgba(163,45,45,0.25)" : "#ebebeb"}`,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  <div
+              {FORUM_RULES.map((rule, i) =>
+                i >= 8 ? null : (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => toggleRule(i)}
+                    className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl text-left"
                     style={{
-                      width: "16px",
-                      height: "16px",
-                      borderRadius: "4px",
-                      border: `1.5px solid ${selectedRules.includes(i) ? "#A32D2D" : "#ccc"}`,
                       background: selectedRules.includes(i)
-                        ? "#A32D2D"
-                        : "transparent",
-                      flexShrink: 0,
-                      marginTop: "1px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
+                        ? "rgba(163,45,45,0.06)"
+                        : "#f5f4f0",
+                      border: `0.5px solid ${selectedRules.includes(i) ? "rgba(163,45,45,0.25)" : "#ebebeb"}`,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
                     }}
                   >
-                    {selectedRules.includes(i) && (
-                      <svg
-                        width="9"
-                        height="9"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="#fff"
-                        strokeWidth="3"
-                      >
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    )}
-                  </div>
-                  <span
-                    className="text-xs"
-                    style={{ color: "#1a1a2e", lineHeight: 1.55 }}
-                  >
-                    <strong>Rule {i + 1}:</strong> {rule}
-                  </span>
-                </button>
-              ))}
+                    <div
+                      style={{
+                        width: "16px",
+                        height: "16px",
+                        borderRadius: "4px",
+                        border: `1.5px solid ${selectedRules.includes(i) ? "#A32D2D" : "#ccc"}`,
+                        background: selectedRules.includes(i)
+                          ? "#A32D2D"
+                          : "transparent",
+                        flexShrink: 0,
+                        marginTop: "1px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {selectedRules.includes(i) && (
+                        <svg
+                          width="9"
+                          height="9"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#fff"
+                          strokeWidth="3"
+                        >
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </div>
+                    <span
+                      className="text-xs"
+                      style={{ color: "#1a1a2e", lineHeight: 1.55 }}
+                    >
+                      <strong>Rule {i + 1}:</strong> {rule}
+                    </span>
+                  </button>
+                ),
+              )}
             </div>
 
             {/* Mod note */}
+            {/* Validation hint */}
+            {selectedRules.length === 0 && (
+              <p className="text-xs mb-2" style={{ color: "#BA7517" }}>
+                Select at least one violated rule to proceed.
+              </p>
+            )}
+
             <div className="flex flex-col gap-1.5 mb-5">
               <label className="text-xs font-medium" style={{ color: "#555" }}>
                 Internal note{" "}
@@ -892,7 +909,7 @@ export default function AdminPage() {
               </button>
               <button
                 type="button"
-                disabled={submitting}
+                disabled={submitting || selectedRules.length === 0}
                 onClick={() =>
                   handleAction(actionModal.post.id, "remove", {
                     violated_rules: selectedRules,
@@ -901,9 +918,15 @@ export default function AdminPage() {
                 }
                 className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white"
                 style={{
-                  background: submitting ? "#ccc" : "#A32D2D",
+                  background:
+                    submitting || selectedRules.length === 0
+                      ? "#ccc"
+                      : "#A32D2D",
                   border: "none",
-                  cursor: submitting ? "not-allowed" : "pointer",
+                  cursor:
+                    submitting || selectedRules.length === 0
+                      ? "not-allowed"
+                      : "pointer",
                   fontFamily: "inherit",
                 }}
               >
