@@ -15,15 +15,17 @@ export async function GET(
   const { postId } = await params;
   const userId = session.user.email;
 
+  // Note: intentionally no .neq("status", "removed") filter here —
+  // removed posts still have an accessible detail page showing a tombstone,
+  // consistent with Reddit's behaviour. The public feed filters them out.
   const { data: post, error } = await supabaseAdmin
     .from("forum_posts")
     .select("*")
     .eq("id", postId)
-    .neq("status", "removed")
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !post) {
+    return NextResponse.json({ error: "Post not found" }, { status: 404 });
   }
 
   // Check if user has upvoted

@@ -83,6 +83,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Block comments on locked threads
+  const { data: postCheck } = await supabaseAdmin
+    .from("forum_posts")
+    .select("is_locked")
+    .eq("id", post_id)
+    .maybeSingle();
+
+  if (postCheck?.is_locked) {
+    return NextResponse.json(
+      { error: "This thread has been locked by a moderator." },
+      { status: 403 },
+    );
+  }
+
   const { data: codeData } = await supabaseAdmin.rpc("generate_anon_code", {
     user_email: userId,
   });
@@ -107,7 +121,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // ── Send forum reply notification ──
+  // Send forum reply notification
   try {
     const { data: post } = await supabaseAdmin
       .from("forum_posts")
@@ -115,7 +129,6 @@ export async function POST(req: NextRequest) {
       .eq("id", post_id)
       .single();
 
-    // Don't notify if author is replying to their own post
     if (post && post.author_id !== userId) {
       const { data: authorSettings } = await supabaseAdmin
         .from("user_settings")
