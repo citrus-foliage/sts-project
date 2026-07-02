@@ -1,5 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const ALLOWED_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN || "ciit.edu.ph";
 
@@ -37,6 +38,18 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       // Expose access token to server-side API routes
       session.accessToken = token.accessToken;
+
+      // Auto-create user_settings row on first login
+      // Uses upsert so repeat logins are a no-op
+      if (session.user?.email) {
+        await supabaseAdmin
+          .from("user_settings")
+          .upsert(
+            { user_id: session.user.email },
+            { onConflict: "user_id", ignoreDuplicates: true },
+          );
+      }
+
       return session;
     },
 
