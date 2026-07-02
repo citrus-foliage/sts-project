@@ -12,6 +12,7 @@ type Props = {
   onUpvote: (commentId: string) => void;
   showDisplayName?: boolean;
   userDisplayName?: string;
+  threadLocked?: boolean;
 };
 
 export default function CommentThread({
@@ -23,6 +24,7 @@ export default function CommentThread({
   onUpvote,
   showDisplayName = false,
   userDisplayName = "",
+  threadLocked = false,
 }: Props) {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyBody, setReplyBody] = useState("");
@@ -171,8 +173,8 @@ export default function CommentThread({
               {comment.upvotes > 0 && comment.upvotes}
             </button>
 
-            {/* Reply */}
-            {depth < 1 && (
+            {/* Reply — hidden when thread is locked or removed */}
+            {depth < 1 && !threadLocked && (
               <button
                 type="button"
                 onClick={() => setShowReplyForm(!showReplyForm)}
@@ -211,8 +213,8 @@ export default function CommentThread({
           </div>
         )}
 
-        {/* Reply form */}
-        {showReplyForm && (
+        {/* Reply form — also gated by threadLocked */}
+        {showReplyForm && !threadLocked && (
           <div className="flex flex-col gap-2 mt-1">
             <textarea
               placeholder="Write a reply..."
@@ -322,6 +324,7 @@ export default function CommentThread({
               onUpvote={onUpvote}
               showDisplayName={showDisplayName}
               userDisplayName={userDisplayName}
+              threadLocked={threadLocked}
             />
           ))}
         </div>
