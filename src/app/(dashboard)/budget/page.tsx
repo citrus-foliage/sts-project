@@ -7,6 +7,7 @@ import DonutChart from "@/components/budget/DonutChart";
 import DailyBudgetWidget from "@/components/budget/DailyBudgetWidget";
 import TransactionLog from "@/components/budget/TransactionLog";
 import FeatureHidden from "@/components/layout/FeatureHidden";
+import BudgetHistory from "@/components/budget/BudgetHistory";
 
 type Category = {
   id: string;
@@ -34,6 +35,15 @@ type Plan = {
   month: string;
 };
 
+type CarryOverResult = {
+  success?: boolean;
+  skipped?: boolean;
+  overspent?: boolean;
+  overspent_amount?: number;
+  carried_over?: number;
+  last_month_label?: string;
+};
+
 export default function BudgetPage() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -42,6 +52,9 @@ export default function BudgetPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [activeTab, setActiveTab] = useState<"current" | "history">("current");
+  const [carryOver, setCarryOver] = useState<CarryOverResult | null>(null);
+  const [carryOverLoading, setCarryOverLoading] = useState(false);
 
   // Feature visibility check
   const [showFeature, setShowFeature] = useState(true);
@@ -92,9 +105,37 @@ export default function BudgetPage() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchPlan();
+  // Try carry-over when plan fetch returns null
+  const tryCarryOver = useCallback(async () => {
+    setCarryOverLoading(true);
+    try {
+      const res = await fetch("/api/budget/carry-over", { method: "POST" });
+      const data: CarryOverResult = await res.json();
+      if (data.success) {
+        setCarryOver(data);
+        await fetchPlan();
+      }
+      // If skipped (no previous plan or already exists), just show setup
+    } catch (err) {
+      console.error("Carry-over error:", err);
+    } finally {
+      setCarryOverLoading(false);
+    }
   }, [fetchPlan]);
+
+  useEffect(() => {
+    const init = async () => {
+      await fetchPlan();
+    };
+    init();
+  }, [fetchPlan]);
+
+  // When fetchPlan resolves with no plan, try carry-over once
+  useEffect(() => {
+    if (!loading && !plan && !carryOverLoading && !isEditing) {
+      tryCarryOver();
+    }
+  }, [loading, plan, carryOverLoading, isEditing, tryCarryOver]);
 
   const handleTransactionAdded = () => fetchPlan();
 
@@ -120,11 +161,13 @@ export default function BudgetPage() {
     return <FeatureHidden featureName="Budget Planner" />;
   }
 
-  if (loading) {
+  if (loading || carryOverLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <p style={{ fontSize: "13px", color: "#999" }}>
-          Loading your budget...
+          {carryOverLoading
+            ? "Setting up your budget..."
+            : "Loading your budget..."}
         </p>
       </div>
     );
@@ -213,7 +256,41 @@ export default function BudgetPage() {
         </button>
       </div>
 
-      {isMobile ? (
+      {/* Tabs */}
+      <div
+        className="flex gap-1"
+        style={{ borderBottom: "0.5px solid #ebebeb" }}
+      >
+        {(["current", "history"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className="px-4 py-2 text-sm"
+            style={{
+              border: "none",
+              background: "transparent",
+              fontWeight: activeTab === tab ? 600 : 400,
+              color: activeTab === tab ? "#1a1a2e" : "#888",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              borderBottom:
+                activeTab === tab
+                  ? "2px solid #1a1a2e"
+                  : "2px solid transparent",
+              marginBottom: "-1px",
+              transition: "all 0.15s",
+            }}
+          >
+            {tab === "current" ? "This Month" : "History"}
+          </button>
+        ))}
+      </div>
+
+      {/* History tab */}
+      {activeTab === "history" ? (
+        <BudgetHistory />
+      ) : isMobile ? (
         /* Mobile: stacked layout */
         <div className="flex flex-col gap-3">
           {/* Donut chart — always visible */}
@@ -324,11 +401,17 @@ export default function BudgetPage() {
               planId={plan.id}
               onTransactionAdded={handleTransactionAdded}
               onTransactionDeleted={handleTransactionDeleted}
+              overspentAmount={
+                carryOver?.overspent ? carryOver.overspent_amount : undefined
+              }
+              overspentMonthLabel={
+                carryOver?.overspent ? carryOver.last_month_label : undefined
+              }
             />
           </div>
         </div>
       ) : (
-        /* Desktop: side-by-side layout (your fixed version) */
+        /* Desktop: side-by-side layout */
         <div
           className="flex gap-4 rounded-2xl overflow-hidden"
           style={{
@@ -360,13 +443,19 @@ export default function BudgetPage() {
               planId={plan.id}
               onTransactionAdded={handleTransactionAdded}
               onTransactionDeleted={handleTransactionDeleted}
+              overspentAmount={
+                carryOver?.overspent ? carryOver.overspent_amount : undefined
+              }
+              overspentMonthLabel={
+                carryOver?.overspent ? carryOver.last_month_label : undefined
+              }
             />
           </div>
         </div>
       )}
 
       {/* Daily Budget Widget */}
-      <DailyBudgetWidget compact={true} />
+      {activeTab === "current" && <DailyBudgetWidget compact={true} />}
     </div>
   );
 }
