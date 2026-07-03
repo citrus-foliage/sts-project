@@ -89,7 +89,7 @@ export default function BudgetSetup({ onSetupComplete }: Props) {
         body: JSON.stringify({
           total_budget: parseFloat(totalBudget),
           allowance_date: allowanceDate,
-          categories: categories.filter((c) => c.allocated > 0),
+          categories,
         }),
       });
       const data = await res.json();
