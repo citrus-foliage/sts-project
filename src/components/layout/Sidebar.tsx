@@ -587,82 +587,122 @@ export default function Sidebar() {
           style={{ borderTop: "0.5px solid rgba(255,255,255,0.07)" }}
         >
           {/* Mod Queue — admin only */}
-          {isAdmin && (
-            <Link
-              href="/admin"
-              className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg mb-0.5 transition-colors`}
-              style={{ textDecoration: "none" }}
-              title={collapsed ? "Moderation" : undefined}
-            >
-              <span
-                style={{
-                  color:
-                    isActive("/admin") || pathname.startsWith("/admin")
-                      ? "#4f8ef7"
-                      : "rgba(255,255,255,0.35)",
-                  fontSize: "16px",
-                  width: "18px",
-                  textAlign: "center",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
-              </span>
-              {!collapsed && (
-                <span
-                  className="text-sm"
+          {isAdmin &&
+            (() => {
+              const adminActive =
+                isActive("/admin") || pathname.startsWith("/admin");
+              return (
+                <Link
+                  href="/admin"
+                  className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg mb-0.5 relative transition-colors`}
                   style={{
-                    color:
-                      isActive("/admin") || pathname.startsWith("/admin")
-                        ? "#4f8ef7"
-                        : "rgba(255,255,255,0.55)",
+                    background: adminActive
+                      ? "rgba(79,142,247,0.15)"
+                      : "transparent",
+                    textDecoration: "none",
+                  }}
+                  title={collapsed ? "Moderation" : undefined}
+                >
+                  {adminActive && (
+                    <span
+                      className="absolute left-0 rounded-r"
+                      style={{
+                        width: "3px",
+                        height: "16px",
+                        background: "#4f8ef7",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                      }}
+                    />
+                  )}
+                  <span
+                    style={{
+                      color: adminActive ? "#4f8ef7" : "rgba(255,255,255,0.35)",
+                      fontSize: "16px",
+                      width: "18px",
+                      textAlign: "center",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                  </span>
+                  {!collapsed && (
+                    <span
+                      className="text-sm flex-1"
+                      style={{
+                        color: adminActive
+                          ? "#e8e8ec"
+                          : "rgba(255,255,255,0.55)",
+                      }}
+                    >
+                      Moderation
+                    </span>
+                  )}
+                </Link>
+              );
+            })()}
+
+          {bottomNav.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg mb-0.5 relative transition-colors`}
+                style={{
+                  background: active ? "rgba(79,142,247,0.15)" : "transparent",
+                  textDecoration: "none",
+                }}
+                title={collapsed ? item.label : undefined}
+              >
+                {active && (
+                  <span
+                    className="absolute left-0 rounded-r"
+                    style={{
+                      width: "3px",
+                      height: "16px",
+                      background: "#4f8ef7",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                    }}
+                  />
+                )}
+                <span
+                  style={{
+                    color: active ? "#4f8ef7" : "rgba(255,255,255,0.35)",
+                    fontSize: "16px",
+                    width: "18px",
+                    textAlign: "center",
+                    flexShrink: 0,
                   }}
                 >
-                  Moderation
+                  {item.icon}
                 </span>
-              )}
-            </Link>
-          )}
-
-          {bottomNav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg mb-0.5 transition-colors`}
-              style={{ textDecoration: "none" }}
-              title={collapsed ? item.label : undefined}
-            >
-              <span
-                style={{
-                  color: "rgba(255,255,255,0.35)",
-                  fontSize: "16px",
-                  width: "18px",
-                  textAlign: "center",
-                }}
-              >
-                {item.icon}
-              </span>
-              {!collapsed && (
-                <span
-                  className="text-sm"
-                  style={{ color: "rgba(255,255,255,0.55)" }}
-                >
-                  {item.label}
-                </span>
-              )}
-            </Link>
-          ))}
+                {!collapsed && (
+                  <span
+                    className="text-sm flex-1"
+                    style={{
+                      color: active ? "#e8e8ec" : "rgba(255,255,255,0.55)",
+                    }}
+                  >
+                    {item.label}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
 
           {/* Sign out */}
           <button
