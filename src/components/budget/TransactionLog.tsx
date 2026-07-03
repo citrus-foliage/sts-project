@@ -10,6 +10,7 @@ type Transaction = {
   type: "expense" | "income";
   date: string;
   note?: string;
+  is_rollover?: boolean;
 };
 
 type Category = {
@@ -24,6 +25,8 @@ type Props = {
   planId: string;
   onTransactionAdded: () => void;
   onTransactionDeleted: (id: string) => void;
+  overspentAmount?: number;
+  overspentMonthLabel?: string;
 };
 
 export default function TransactionLog({
@@ -32,6 +35,8 @@ export default function TransactionLog({
   planId,
   onTransactionAdded,
   onTransactionDeleted,
+  overspentAmount,
+  overspentMonthLabel,
 }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [label, setLabel] = useState("");
@@ -45,6 +50,9 @@ export default function TransactionLog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    new Set(),
+  );
 
   const handleAddTransaction = async () => {
     if (!label || !amount || !categoryId) {
@@ -90,8 +98,11 @@ export default function TransactionLog({
     }
   };
 
+  const rolloverTxn = transactions.find((t) => t.is_rollover);
+  const regularTransactions = transactions.filter((t) => !t.is_rollover);
+
   // Group transactions by date
-  const grouped = transactions
+  const grouped = regularTransactions
     .filter((t) => activeFilter === "all" || t.category_id === activeFilter)
     .reduce(
       (acc, t) => {
@@ -103,11 +114,39 @@ export default function TransactionLog({
       {} as Record<string, Transaction[]>,
     );
 
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
   const getCategoryColor = (id: string) =>
     categories.find((c) => c.category_id === id)?.color ?? "#999";
 
   const getCategoryLabel = (id: string) =>
     categories.find((c) => c.category_id === id)?.category_label ?? id;
+
+  // Build filter tabs from both budget_categories AND actual transactions
+  // so categories used in transactions always appear even if not in budget
+  const txnCategoryIds = [
+    ...new Set(regularTransactions.map((t) => t.category_id)),
+  ];
+  const allFilterCategories = [
+    ...categories,
+    ...txnCategoryIds
+      .filter((id) => !categories.some((c) => c.category_id === id))
+      .map((id) => ({
+        id,
+        category_id: id,
+        category_label:
+          id.charAt(0).toUpperCase() + id.slice(1).replace(/_/g, " "),
+        color: "#999",
+        allocated: 0,
+        spent: 0,
+      })),
+  ];
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -154,7 +193,7 @@ export default function TransactionLog({
           >
             All
           </button>
-          {categories.slice(0, 3).map((cat) => (
+          {allFilterCategories.map((cat) => (
             <button
               type="button"
               key={cat.category_id}
@@ -206,6 +245,88 @@ export default function TransactionLog({
           Add
         </button>
       </div>
+
+      {/* Overspend warning banner */}
+      {overspentAmount && overspentAmount > 0 && (
+        <div
+          className="flex items-start gap-2.5 px-4 py-3 flex-shrink-0"
+          style={{
+            background: "rgba(163,45,45,0.05)",
+            borderBottom: "0.5px solid rgba(163,45,45,0.15)",
+          }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#A32D2D"
+            strokeWidth="2"
+            style={{ flexShrink: 0, marginTop: "1px" }}
+          >
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <div>
+            <p className="text-xs font-medium" style={{ color: "#A32D2D" }}>
+              You overspent ₱{overspentAmount.toLocaleString()} last month
+              {overspentMonthLabel ? ` (${overspentMonthLabel})` : ""}
+            </p>
+            <p
+              className="text-xs mt-0.5"
+              style={{ color: "#666", lineHeight: 1.5 }}
+            >
+              This month starts fresh. You can manually adjust your budget to
+              compensate.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Rollover income row */}
+      {rolloverTxn && (
+        <div
+          className="flex items-center gap-3 mx-4 my-2 px-3 py-2.5 rounded-xl flex-shrink-0"
+          style={{
+            background: "rgba(99,153,34,0.06)",
+            border: "0.5px solid rgba(99,153,34,0.2)",
+          }}
+        >
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ background: "rgba(99,153,34,0.12)" }}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#639922"
+              strokeWidth="2"
+            >
+              <polyline points="17 1 21 5 17 9" />
+              <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+              <polyline points="7 23 3 19 7 15" />
+              <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium" style={{ color: "#639922" }}>
+              {rolloverTxn.label}
+            </p>
+            <p className="text-xs" style={{ color: "#999" }}>
+              Unspent balance carried forward
+            </p>
+          </div>
+          <p
+            className="text-sm font-medium flex-shrink-0"
+            style={{ color: "#639922", fontFamily: "monospace" }}
+          >
+            +₱{rolloverTxn.amount.toLocaleString()}
+          </p>
+        </div>
+      )}
 
       {/* Add transaction form */}
       {showForm && (
@@ -379,86 +500,116 @@ export default function TransactionLog({
             .sort(([a], [b]) => b.localeCompare(a))
             .map(([dateKey, txns]) => (
               <div key={dateKey} className="mb-4">
-                <p
-                  className="text-xs font-medium uppercase tracking-wider mb-2"
-                  style={{ color: "#999", letterSpacing: "0.06em" }}
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(dateKey)}
+                  className="flex items-center gap-2 w-full mb-2"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
                 >
-                  {formatDate(dateKey)}
-                </p>
-                {txns.map((txn) => (
-                  <div
-                    key={txn.id}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 group"
-                    style={{ background: "#f5f4f0" }}
+                  <p
+                    className="text-xs font-medium uppercase tracking-wider flex-1 text-left"
+                    style={{ color: "#999", letterSpacing: "0.06em" }}
                   >
-                    {/* Category dot */}
+                    {formatDate(dateKey)}
+                  </p>
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#bbb"
+                    strokeWidth="2"
+                    style={{
+                      transform: collapsedGroups.has(dateKey)
+                        ? "rotate(-90deg)"
+                        : "rotate(0deg)",
+                      transition: "transform 0.15s",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+                {!collapsedGroups.has(dateKey) &&
+                  txns.map((txn) => (
                     <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{
-                        background: `${getCategoryColor(txn.category_id)}18`,
-                      }}
+                      key={txn.id}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 group"
+                      style={{ background: "#f5f4f0" }}
                     >
+                      {/* Category dot */}
                       <div
-                        className="rounded-full"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                         style={{
-                          width: 8,
-                          height: 8,
-                          background: getCategoryColor(txn.category_id),
+                          background: `${getCategoryColor(txn.category_id)}18`,
                         }}
-                      />
-                    </div>
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
+                      >
+                        <div
+                          className="rounded-full"
+                          style={{
+                            width: 8,
+                            height: 8,
+                            background: getCategoryColor(txn.category_id),
+                          }}
+                        />
+                      </div>
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className="text-xs font-medium truncate"
+                          style={{ color: "#1a1a2e" }}
+                        >
+                          {txn.label}
+                        </p>
+                        <p className="text-xs" style={{ color: "#999" }}>
+                          {getCategoryLabel(txn.category_id)}
+                        </p>
+                      </div>
+                      {/* Amount */}
                       <p
-                        className="text-xs font-medium truncate"
-                        style={{ color: "#1a1a2e" }}
+                        className="text-sm font-medium flex-shrink-0"
+                        style={{
+                          color: txn.type === "income" ? "#639922" : "#1a1a2e",
+                          fontFamily: "monospace",
+                        }}
                       >
-                        {txn.label}
+                        {txn.type === "income" ? "+" : "-"}₱
+                        {txn.amount.toLocaleString()}
                       </p>
-                      <p className="text-xs" style={{ color: "#999" }}>
-                        {getCategoryLabel(txn.category_id)}
-                      </p>
+                      {/* Delete button */}
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(txn.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#999",
+                          padding: "2px",
+                        }}
+                      >
+                        <svg
+                          width="13"
+                          height="13"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14H6L5 6" />
+                          <path d="M10 11v6M14 11v6" />
+                          <path d="M9 6V4h6v2" />
+                        </svg>
+                      </button>
                     </div>
-                    {/* Amount */}
-                    <p
-                      className="text-sm font-medium flex-shrink-0"
-                      style={{
-                        color: txn.type === "income" ? "#639922" : "#1a1a2e",
-                        fontFamily: "monospace",
-                      }}
-                    >
-                      {txn.type === "income" ? "+" : "-"}₱
-                      {txn.amount.toLocaleString()}
-                    </p>
-                    {/* Delete button */}
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(txn.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "#999",
-                        padding: "2px",
-                      }}
-                    >
-                      <svg
-                        width="13"
-                        height="13"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6l-1 14H6L5 6" />
-                        <path d="M10 11v6M14 11v6" />
-                        <path d="M9 6V4h6v2" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
+                  ))}
               </div>
             ))
         )}

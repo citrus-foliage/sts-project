@@ -113,6 +113,22 @@ export default function DailyBudgetWidget({ compact = false }: Props) {
 
   const computed = computeDailyAllowance();
 
+  const isCycleExpired =
+    !!config?.next_budget_cycle &&
+    new Date(config.next_budget_cycle) < new Date(new Date().toDateString());
+
+  // Suggest same day next month as the new cycle date
+  const suggestedNextCycle = (() => {
+    if (!config?.next_budget_cycle) return "";
+    const prev = new Date(config.next_budget_cycle);
+    const next = new Date(
+      prev.getFullYear(),
+      prev.getMonth() + 1,
+      prev.getDate(),
+    );
+    return next.toISOString().slice(0, 10);
+  })();
+
   const formatCycleDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString("en-PH", {
       month: "long",
@@ -325,6 +341,59 @@ export default function DailyBudgetWidget({ compact = false }: Props) {
           Update
         </button>
       </div>
+
+      {/* Stale cycle warning */}
+      {isCycleExpired && (
+        <div
+          className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl"
+          style={{
+            background: "rgba(186,117,23,0.06)",
+            border: "0.5px solid rgba(186,117,23,0.2)",
+          }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#BA7517"
+            strokeWidth="2"
+            style={{ flexShrink: 0, marginTop: "1px" }}
+          >
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <div className="flex-1">
+            <p className="text-xs font-medium" style={{ color: "#BA7517" }}>
+              Your budget cycle has ended
+            </p>
+            <p
+              className="text-xs mt-0.5"
+              style={{ color: "#666", lineHeight: 1.5 }}
+            >
+              Update your deadline to keep your daily limit accurate.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setCycleDate(suggestedNextCycle);
+                setEditing(true);
+              }}
+              className="text-xs mt-1.5 px-2.5 py-1 rounded-lg font-medium"
+              style={{
+                background: "rgba(186,117,23,0.1)",
+                border: "0.5px solid rgba(186,117,23,0.25)",
+                color: "#BA7517",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              Update deadline →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main result */}
       <div className="flex flex-col items-center gap-2 py-2">
