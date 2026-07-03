@@ -55,6 +55,7 @@ export default function BudgetPage() {
   const [activeTab, setActiveTab] = useState<"current" | "history">("current");
   const [carryOver, setCarryOver] = useState<CarryOverResult | null>(null);
   const [carryOverLoading, setCarryOverLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Feature visibility check
   const [showFeature, setShowFeature] = useState(true);
@@ -137,11 +138,15 @@ export default function BudgetPage() {
     }
   }, [loading, plan, carryOverLoading, isEditing, tryCarryOver]);
 
-  const handleTransactionAdded = () => fetchPlan();
+  const handleTransactionAdded = () => {
+    fetchPlan();
+    setRefreshKey((k) => k + 1);
+  };
 
   const handleTransactionDeleted = (id: string) => {
     setTransactions((prev) => prev.filter((t) => t.id !== id));
     fetchPlan();
+    setRefreshKey((k) => k + 1);
   };
 
   const currentMonth = new Date().toLocaleDateString("en-PH", {
@@ -455,7 +460,9 @@ export default function BudgetPage() {
       )}
 
       {/* Daily Budget Widget */}
-      {activeTab === "current" && <DailyBudgetWidget compact={true} />}
+      {activeTab === "current" && (
+        <DailyBudgetWidget compact={true} refreshKey={refreshKey} />
+      )}
     </div>
   );
 }

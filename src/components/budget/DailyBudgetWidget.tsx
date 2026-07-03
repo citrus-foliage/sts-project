@@ -11,9 +11,13 @@ type Config = {
 
 type Props = {
   compact?: boolean;
+  refreshKey?: number;
 };
 
-export default function DailyBudgetWidget({ compact = false }: Props) {
+export default function DailyBudgetWidget({
+  compact = false,
+  refreshKey = 0,
+}: Props) {
   const [config, setConfig] = useState<Config | null>(null);
   const [budgetBalance, setBudgetBalance] = useState<number | null>(null);
   const [hasBudgetPlan, setHasBudgetPlan] = useState(false);
@@ -62,7 +66,7 @@ export default function DailyBudgetWidget({ compact = false }: Props) {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, refreshKey]);
 
   const handleSave = async () => {
     if (!cycleDate) {
