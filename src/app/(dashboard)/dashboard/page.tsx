@@ -361,8 +361,8 @@ export default async function DashboardPage() {
 
       {/* Main Row */}
       <div
-        className="grid gap-4"
-        style={{ gridTemplateColumns: "1.2fr 0.8fr", alignItems: "start" }}
+        className="grid grid-cols-1 md:grid-cols-[1.2fr_0.8fr] gap-4"
+        style={{ alignItems: "start" }}
       >
         {/* Left — Task Manager preview */}
         {show.tasks && (
