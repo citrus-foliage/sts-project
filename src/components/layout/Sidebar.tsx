@@ -5,7 +5,7 @@ import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// ── Icons ──
+// Icons
 function GridIcon() {
   return (
     <svg
@@ -213,25 +213,6 @@ function PanelIcon({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-function ChevronIcon({ collapsed }: { collapsed: boolean }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      style={{
-        transform: collapsed ? "rotate(180deg)" : "rotate(0deg)",
-        transition: "transform 0.3s ease",
-      }}
-    >
-      <polyline points="15 18 9 12 15 6" />
-    </svg>
-  );
-}
-
 const navigation = [
   {
     items: [{ label: "Overview", href: "/dashboard", icon: <GridIcon /> }],
@@ -265,6 +246,16 @@ const bottomNav = [
   { label: "Settings", href: "/settings", icon: <SettingsIcon /> },
 ];
 
+const FEATURE_KEYS: Record<string, string> = {
+  "/tasks": "show_tasks",
+  "/budget": "show_budget",
+  "/survival": "show_survival",
+  "/schedule": "show_schedule",
+  "/timer": "show_timer",
+  "/forum": "show_forum",
+  "/resources": "show_resources",
+};
+
 export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -276,6 +267,9 @@ export default function Sidebar() {
   // True when screen width is below lg breakpoint (1024px)
   const [isMobile, setIsMobile] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [featureSettings, setFeatureSettings] = useState<
+    Record<string, boolean>
+  >({});
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024);
@@ -291,6 +285,37 @@ export default function Sidebar() {
         if (d.isAdmin) setIsAdmin(true);
       })
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const loadFeatureSettings = () => {
+      fetch("/api/settings")
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.settings) setFeatureSettings(d.settings);
+        })
+        .catch(() => {});
+    };
+
+    // Initial load
+    loadFeatureSettings();
+
+    // Re-fetch as soon as the Settings page saves changes in this tab
+    window.addEventListener("settings-updated", loadFeatureSettings);
+
+    // Re-fetch when the user comes back to this tab (covers changes made
+    // in another tab, or the settings-updated listener being missed)
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") loadFeatureSettings();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", loadFeatureSettings);
+
+    return () => {
+      window.removeEventListener("settings-updated", loadFeatureSettings);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", loadFeatureSettings);
+    };
   }, []);
 
   const isActive = (href: string) => pathname === href;
@@ -517,57 +542,65 @@ export default function Sidebar() {
                   {group.label}
                 </p>
               )}
-              {group.items.map((item) => {
-                const active = isActive(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg mb-0.5 relative transition-colors`}
-                    style={{
-                      background: active
-                        ? "rgba(79,142,247,0.15)"
-                        : "transparent",
-                      textDecoration: "none",
-                    }}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    {active && (
-                      <span
-                        className="absolute left-0 rounded-r"
-                        style={{
-                          width: "3px",
-                          height: "16px",
-                          background: "#4f8ef7",
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                        }}
-                      />
-                    )}
-                    <span
+              {group.items
+                .filter((item) => {
+                  const key = FEATURE_KEYS[item.href];
+                  if (!key) return true;
+                  return featureSettings[key] !== false;
+                })
+                .map((item) => {
+                  const active = isActive(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-2 py-1.5 rounded-lg mb-0.5 relative transition-colors`}
                       style={{
-                        color: active ? "#4f8ef7" : "rgba(255,255,255,0.35)",
-                        fontSize: "16px",
-                        width: "18px",
-                        textAlign: "center",
-                        flexShrink: 0,
+                        background: active
+                          ? "rgba(79,142,247,0.15)"
+                          : "transparent",
+                        textDecoration: "none",
                       }}
+                      title={collapsed ? item.label : undefined}
                     >
-                      {item.icon}
-                    </span>
-                    {!collapsed && (
+                      {active && (
+                        <span
+                          className="absolute left-0 rounded-r"
+                          style={{
+                            width: "3px",
+                            height: "16px",
+                            background: "#4f8ef7",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                          }}
+                        />
+                      )}
                       <span
-                        className="text-sm flex-1"
                         style={{
-                          color: active ? "#e8e8ec" : "rgba(255,255,255,0.55)",
+                          color: active ? "#4f8ef7" : "rgba(255,255,255,0.35)",
+                          fontSize: "16px",
+                          width: "18px",
+                          textAlign: "center",
+                          flexShrink: 0,
                         }}
                       >
-                        {item.label}
+                        {item.icon}
                       </span>
-                    )}
-                  </Link>
-                );
-              })}
+                      {!collapsed && (
+                        <span
+                          className="text-sm flex-1"
+                          style={{
+                            color: active
+                              ? "#e8e8ec"
+                              : "rgba(255,255,255,0.55)",
+                          }}
+                        >
+                          {item.label}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
               {gi < navigation.length - 1 && group.label && (
                 <div
                   className="mx-2 mt-2"
