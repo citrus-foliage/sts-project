@@ -26,7 +26,6 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, account }) {
-      // On first sign in, persist tokens from Google
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
@@ -36,18 +35,53 @@ export const authOptions: NextAuthOptions = {
     },
 
     async session({ session, token }) {
-      // Expose access token to server-side API routes
       session.accessToken = token.accessToken;
 
-      // Auto-create user_settings row on first login
-      // Uses upsert so repeat logins are a no-op
       if (session.user?.email) {
-        await supabaseAdmin
+        const userId = session.user.email;
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+        // Fetch existing settings
+        const { data: existing } = await supabaseAdmin
           .from("user_settings")
-          .upsert(
-            { user_id: session.user.email },
-            { onConflict: "user_id", ignoreDuplicates: true },
+          .select("current_streak, longest_streak, last_login_date")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        let newStreak = 1;
+        let longestStreak = existing?.longest_streak ?? 0;
+
+        if (existing?.last_login_date) {
+          const last = new Date(existing.last_login_date);
+          const todayDate = new Date(today);
+          const diffDays = Math.round(
+            (todayDate.getTime() - last.getTime()) / (1000 * 60 * 60 * 24),
           );
+
+          if (diffDays === 0) {
+            // Same day login — keep current streak, no update needed
+            newStreak = existing.current_streak ?? 1;
+          } else if (diffDays === 1) {
+            // Consecutive day — increment streak
+            newStreak = (existing.current_streak ?? 0) + 1;
+          } else {
+            // Streak broken — reset to 1
+            newStreak = 1;
+          }
+        }
+
+        longestStreak = Math.max(longestStreak, newStreak);
+
+        // Upsert user_settings with streak + create row if first login
+        await supabaseAdmin.from("user_settings").upsert(
+          {
+            user_id: userId,
+            current_streak: newStreak,
+            longest_streak: longestStreak,
+            last_login_date: today,
+          },
+          { onConflict: "user_id" },
+        );
       }
 
       return session;
