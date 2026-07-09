@@ -65,6 +65,12 @@ export default function AdminPage() {
   const [modNote, setModNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [generatedMessage, setGeneratedMessage] = useState<string | null>(null);
+  const [showBroadcast, setShowBroadcast] = useState(false);
+  const [broadcastTitle, setBroadcastTitle] = useState("");
+  const [broadcastBody, setBroadcastBody] = useState("");
+  const [broadcastLink, setBroadcastLink] = useState("");
+  const [broadcastSending, setBroadcastSending] = useState(false);
+  const [broadcastSent, setBroadcastSent] = useState(false);
 
   // Check admin role
   useEffect(() => {
@@ -99,6 +105,32 @@ export default function AdminPage() {
   useEffect(() => {
     if (adminRole) fetchPosts();
   }, [fetchPosts, adminRole]);
+
+  const handleBroadcast = async () => {
+    if (!broadcastTitle.trim() || !broadcastBody.trim()) return;
+    setBroadcastSending(true);
+    try {
+      await fetch("/api/notifications/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: broadcastTitle.trim(),
+          body: broadcastBody.trim(),
+          link: broadcastLink.trim() || undefined,
+        }),
+      });
+      setBroadcastSent(true);
+      setBroadcastTitle("");
+      setBroadcastBody("");
+      setBroadcastLink("");
+      setTimeout(() => {
+        setBroadcastSent(false);
+        setShowBroadcast(false);
+      }, 2000);
+    } finally {
+      setBroadcastSending(false);
+    }
+  };
 
   const formatTime = (d: string) =>
     new Date(d).toLocaleDateString("en-PH", {
@@ -248,6 +280,32 @@ export default function AdminPage() {
               <polyline points="10 9 9 9 8 9" />
             </svg>
             Logs
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowBroadcast(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
+            style={{
+              background: "rgba(79,142,247,0.08)",
+              border: "0.5px solid rgba(79,142,247,0.2)",
+              color: "#4f8ef7",
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+            </svg>
+            Announce
           </button>
         </div>
       </div>
@@ -733,6 +791,190 @@ export default function AdminPage() {
             );
           })}
         </div>
+      )}
+
+      {/* Broadcast announcement modal */}
+      {showBroadcast && (
+        <>
+          <div
+            onClick={() => setShowBroadcast(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.45)",
+              backdropFilter: "blur(6px)",
+              WebkitBackdropFilter: "blur(6px)",
+              zIndex: 50,
+            }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              zIndex: 51,
+              background: "#fff",
+              borderRadius: "20px",
+              padding: "28px",
+              width: "460px",
+              maxWidth: "92vw",
+              boxShadow: "0 32px 80px rgba(0,0,0,0.25)",
+            }}
+          >
+            {broadcastSent ? (
+              <div className="flex flex-col items-center gap-3 py-4">
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                  style={{ background: "rgba(99,153,34,0.1)" }}
+                >
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#639922"
+                    strokeWidth="2.5"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <p
+                  className="text-sm font-semibold"
+                  style={{ color: "#1a1a2e" }}
+                >
+                  Announcement sent
+                </p>
+                <p className="text-xs" style={{ color: "#666" }}>
+                  All users will see this in their notification bell.
+                </p>
+              </div>
+            ) : (
+              <>
+                <p
+                  className="text-sm font-semibold mb-1"
+                  style={{ color: "#1a1a2e" }}
+                >
+                  Send Announcement
+                </p>
+                <p className="text-xs mb-5" style={{ color: "#666" }}>
+                  This will appear in every user's notification bell
+                  immediately.
+                </p>
+                <div className="flex flex-col gap-3 mb-5">
+                  <div className="flex flex-col gap-1.5">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "#555" }}
+                    >
+                      Title
+                    </label>
+                    <input
+                      type="text"
+                      value={broadcastTitle}
+                      onChange={(e) => setBroadcastTitle(e.target.value)}
+                      className="px-3 py-2 rounded-xl text-xs outline-none"
+                      style={{
+                        border: "1px solid #e5e5e5",
+                        background: "#fafafa",
+                        fontFamily: "inherit",
+                        color: "#1a1a2e",
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "#555" }}
+                    >
+                      Message
+                    </label>
+                    <textarea
+                      value={broadcastBody}
+                      onChange={(e) => setBroadcastBody(e.target.value)}
+                      placeholder="Write your announcement here..."
+                      rows={3}
+                      className="px-3 py-2 rounded-xl text-xs outline-none resize-none"
+                      style={{
+                        border: "1px solid #e5e5e5",
+                        background: "#fafafa",
+                        fontFamily: "inherit",
+                        color: "#1a1a2e",
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "#555" }}
+                    >
+                      Link{" "}
+                      <span style={{ color: "#bbb", fontWeight: 400 }}>
+                        (optional — where to navigate on click)
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      value={broadcastLink}
+                      onChange={(e) => setBroadcastLink(e.target.value)}
+                      className="px-3 py-2 rounded-xl text-xs outline-none"
+                      style={{
+                        border: "1px solid #e5e5e5",
+                        background: "#fafafa",
+                        fontFamily: "inherit",
+                        color: "#1a1a2e",
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowBroadcast(false)}
+                    className="flex-1 py-2.5 rounded-xl text-sm"
+                    style={{
+                      background: "#f5f4f0",
+                      border: "0.5px solid #ebebeb",
+                      color: "#666",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      broadcastSending ||
+                      !broadcastTitle.trim() ||
+                      !broadcastBody.trim()
+                    }
+                    onClick={handleBroadcast}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white"
+                    style={{
+                      background:
+                        broadcastSending ||
+                        !broadcastTitle.trim() ||
+                        !broadcastBody.trim()
+                          ? "#ccc"
+                          : "#4f8ef7",
+                      border: "none",
+                      cursor:
+                        broadcastSending ||
+                        !broadcastTitle.trim() ||
+                        !broadcastBody.trim()
+                          ? "not-allowed"
+                          : "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    {broadcastSending ? "Sending..." : "Send to all users"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </>
       )}
 
       {/* Remove action modal */}
