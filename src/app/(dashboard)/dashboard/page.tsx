@@ -128,6 +128,16 @@ export default async function DashboardPage() {
     .eq("user_id", userId)
     .single();
 
+  // Fetch activity streak
+  const { data: streakData } = await supabaseAdmin
+    .from("user_settings")
+    .select("current_streak, longest_streak")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const currentStreak = streakData?.current_streak ?? 0;
+  const longestStreak = streakData?.longest_streak ?? 0;
+
   // Calculate daily allowance using live budget balance + saved cycle date
   let dailyAllowance: number | null = null;
   if (availableBalance !== null && dailyConfig?.next_budget_cycle) {
@@ -350,10 +360,14 @@ export default async function DashboardPage() {
               className="font-medium"
               style={{ fontSize: "20px", color: "#1a1a2e" }}
             >
-              0d
+              {currentStreak}d
             </p>
             <p style={{ fontSize: "11px", color: "#999", marginTop: "3px" }}>
-              Log in daily to build streak
+              {currentStreak === 0
+                ? "Log in daily to build streak"
+                : currentStreak === 1
+                  ? "Day 1 — keep it up!"
+                  : `${currentStreak} days · Best: ${longestStreak}d`}
             </p>
           </div>
         )}
@@ -361,8 +375,8 @@ export default async function DashboardPage() {
 
       {/* Main Row */}
       <div
-        className="grid grid-cols-1 md:grid-cols-[1.2fr_0.8fr] gap-4"
-        style={{ alignItems: "start" }}
+        className="grid gap-4"
+        style={{ gridTemplateColumns: "1.2fr 0.8fr", alignItems: "start" }}
       >
         {/* Left — Task Manager preview */}
         {show.tasks && (
