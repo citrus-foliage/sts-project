@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth/config";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { resend, FROM_EMAIL, resolveRecipient } from "@/lib/email/resend";
 import { forumReplyEmail } from "@/lib/email/templates/forum-reply";
+import { sendPushToUser } from "@/lib/push";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -153,6 +154,31 @@ export async function POST(req: NextRequest) {
           subject,
           html,
         });
+      }
+
+      // Insert in-app notification for the post author
+      const notifTitle = `New reply on "${post.title}"`;
+      const notifBody = is_anonymous
+        ? `Anonymous ${codeData ?? "#0000"} replied to your post.`
+        : `Someone replied to your post: "${comment_body.slice(0, 80)}${comment_body.length > 80 ? "…" : ""}"`;
+
+      await supabaseAdmin.from("notifications").insert({
+        user_id: post.author_id,
+        type: "forum_reply",
+        title: notifTitle,
+        body: notifBody,
+        link: `/forum/${post_id}`,
+      });
+
+      // Send push notification to post author
+      try {
+        await sendPushToUser(post.author_id, {
+          title: notifTitle,
+          body: notifBody,
+          link: `/forum/${post_id}`,
+        });
+      } catch {
+        // Push failure should not block comment creation
       }
     }
   } catch {
