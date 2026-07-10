@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import TimerSettings from "@/components/timer/TimerSettings";
 import FeatureHidden from "@/components/layout/FeatureHidden";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { useSettings } from "@/contexts/SettingsContext";
 
 type SessionType = "focus" | "short_break" | "long_break";
 
@@ -47,14 +49,62 @@ const SESSION_COLORS: Record<SessionType, string> = {
   long_break: "#7c5ce4",
 };
 
+function TimerSkeleton() {
+  return (
+    <div className="flex flex-col gap-5 max-w-2xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2">
+          <Skeleton style={{ width: "140px", height: "22px" }} />
+          <Skeleton style={{ width: "220px", height: "14px" }} />
+        </div>
+        <Skeleton
+          style={{ width: "90px", height: "32px", borderRadius: "12px" }}
+        />
+      </div>
+
+      {/* Session tabs */}
+      <Skeleton
+        style={{ width: "100%", height: "40px", borderRadius: "16px" }}
+      />
+
+      {/* Timer circle */}
+      <div
+        className="rounded-2xl flex flex-col items-center gap-6 py-10 px-6"
+        style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+      >
+        <Skeleton
+          style={{ width: "220px", height: "220px", borderRadius: "50%" }}
+        />
+        <Skeleton
+          style={{ width: "220px", height: "40px", borderRadius: "16px" }}
+        />
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton
+            key={i}
+            style={{ width: "100%", height: "72px", borderRadius: "12px" }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function TimerPage() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [stats, setStats] = useState<Stats | null>(null);
   const [todaySessions, setTodaySessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showFeature, setShowFeature] = useState(true);
-  const [checkingFeature, setCheckingFeature] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Feature visibility now comes from the shared SettingsContext (fetched
+  // once per session in the layout) instead of a page-local fetch.
+  const { settings: featureSettings, loading: checkingFeature } = useSettings();
+  const showFeature = featureSettings.show_timer !== false;
 
   // Timer state
   const [sessionType, setSessionType] = useState<SessionType>("focus");
@@ -69,16 +119,6 @@ export default function TimerPage() {
   const audioRef = useRef<AudioContext | null>(null);
 
   // ── Fetch initial data ──
-  useEffect(() => {
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.settings?.show_timer === false) setShowFeature(false);
-      })
-      .catch(() => {})
-      .finally(() => setCheckingFeature(false));
-  }, []);
-
   const fetchData = useCallback(async () => {
     try {
       const [settingsRes, statsRes, sessionsRes] = await Promise.all([
@@ -294,11 +334,7 @@ export default function TimerPage() {
   const circumference = 2 * Math.PI * 90;
 
   if (checkingFeature) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p style={{ fontSize: "13px", color: "#999" }}>Loading...</p>
-      </div>
-    );
+    return <TimerSkeleton />;
   }
 
   if (!showFeature) {
@@ -306,11 +342,7 @@ export default function TimerPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p style={{ fontSize: "13px", color: "#999" }}>Loading timer...</p>
-      </div>
-    );
+    return <TimerSkeleton />;
   }
 
   if (showSettings) {

@@ -9,6 +9,7 @@ import FlairBadge from "@/components/forum/FlairBadge";
 import CommentThread from "@/components/forum/CommentThread";
 import ForumSidebar from "@/components/forum/ForumSidebar";
 import RecentlyViewed from "@/components/forum/RecentlyViewed";
+import { useSettings } from "@/contexts/SettingsContext";
 
 type RecentPost = {
   id: string;
@@ -32,11 +33,16 @@ export default function PostDetailPage({
   const [commentAnon, setCommentAnon] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [userDisplayName, setUserDisplayName] = useState<string>("");
   const [isMobile, setIsMobile] = useState(false);
-  const [showDisplayName, setShowDisplayName] = useState<boolean>(false);
 
   const userId = session?.user?.email ?? "";
+
+  // Display-name preferences now come from the shared SettingsContext
+  // instead of this page fetching /api/settings itself alongside the post.
+  const { settings } = useSettings();
+  const showDisplayName = settings.forum_show_display_name ?? false;
+  const userDisplayName =
+    (settings.display_name as string | undefined) || userId.split("@")[0];
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024);
@@ -63,32 +69,22 @@ export default function PostDetailPage({
 
   const fetchPost = useCallback(async () => {
     try {
-      const [postRes, commentsRes, settingsRes] = await Promise.all([
+      const [postRes, commentsRes] = await Promise.all([
         fetch(`/api/forum/posts/${postId}`),
         fetch(`/api/forum/comments?postId=${postId}`),
-        fetch("/api/settings"),
       ]);
-      const [postData, commentsData, settingsData] = await Promise.all([
+      const [postData, commentsData] = await Promise.all([
         postRes.json(),
         commentsRes.json(),
-        settingsRes.json(),
       ]);
       if (postData.post) setPost(postData.post);
       if (commentsData.comments) setComments(commentsData.comments);
-      if (settingsData.settings) {
-        setShowDisplayName(
-          settingsData.settings.forum_show_display_name ?? false,
-        );
-        setUserDisplayName(
-          settingsData.settings.display_name ?? userId.split("@")[0],
-        );
-      }
     } catch (err) {
       console.error("Fetch post error:", err);
     } finally {
       setLoading(false);
     }
-  }, [postId, userId]);
+  }, [postId]);
 
   useEffect(() => {
     fetchPost();

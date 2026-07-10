@@ -7,6 +7,8 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import CalendarSetup from "@/components/schedule/CalendarSetup";
 import FeatureHidden from "@/components/layout/FeatureHidden";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { useSettings } from "@/contexts/SettingsContext";
 
 type CalendarEvent = {
   id: string;
@@ -50,6 +52,69 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: "#166534",
 };
 
+function ScheduleSkeleton({ isMobile }: { isMobile: boolean }) {
+  return (
+    <div
+      className={isMobile ? "flex flex-col gap-5" : "flex gap-5 items-start"}
+    >
+      {/* Main calendar */}
+      <div className="flex flex-col gap-4 flex-1 min-w-0 min-h-0">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-2">
+            <Skeleton style={{ width: "100px", height: "22px" }} />
+            <Skeleton style={{ width: "220px", height: "14px" }} />
+          </div>
+          <Skeleton
+            style={{ width: "110px", height: "34px", borderRadius: "12px" }}
+          />
+        </div>
+
+        {/* Calendar */}
+        <div
+          className="rounded-2xl p-4 flex flex-col gap-3"
+          style={{
+            background: "#fff",
+            border: "0.5px solid #ebebeb",
+            minHeight: "500px",
+          }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <Skeleton style={{ width: "120px", height: "16px" }} />
+            <Skeleton
+              style={{ width: "160px", height: "28px", borderRadius: "8px" }}
+            />
+          </div>
+          <div className="grid grid-cols-7 gap-2 flex-1">
+            {Array.from({ length: 35 }).map((_, i) => (
+              <Skeleton key={i} style={{ width: "100%", height: "56px" }} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Right sidebar */}
+      <div
+        className={
+          isMobile
+            ? "flex flex-col gap-4 w-full order-first"
+            : "flex-shrink-0 flex flex-col gap-4 w-60"
+        }
+      >
+        <div
+          className="rounded-2xl p-4 flex flex-col gap-3"
+          style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+        >
+          <Skeleton style={{ width: "90px", height: "12px" }} />
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} style={{ width: "100%", height: "12px" }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SchedulePage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [sources, setSources] = useState<EventSources>({
@@ -64,24 +129,16 @@ export default function SchedulePage() {
   const [isMobile, setIsMobile] = useState(false);
   const [googleError, setGoogleError] = useState("");
 
-  const [showFeature, setShowFeature] = useState(true);
-  const [checkingFeature, setCheckingFeature] = useState(true);
+  // Feature visibility now comes from the shared SettingsContext (fetched
+  // once per session in the layout) instead of a page-local fetch.
+  const { settings, loading: checkingFeature } = useSettings();
+  const showFeature = settings.show_schedule !== false;
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.settings?.show_schedule === false) setShowFeature(false);
-      })
-      .catch(() => {})
-      .finally(() => setCheckingFeature(false));
   }, []);
 
   const fetchEvents = useCallback(async () => {
@@ -242,11 +299,7 @@ export default function SchedulePage() {
   ];
 
   if (checkingFeature) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-[13px] text-[#999]">Loading...</p>
-      </div>
-    );
+    return <ScheduleSkeleton isMobile={isMobile} />;
   }
 
   if (!showFeature) {
@@ -357,10 +410,10 @@ export default function SchedulePage() {
           `}</style>
 
           {loading ? (
-            <div className="flex items-center justify-center h-96">
-              <p className="text-[13px] text-[#999]">
-                Loading your schedule...
-              </p>
+            <div className="grid grid-cols-7 gap-2 h-96">
+              {Array.from({ length: 35 }).map((_, i) => (
+                <Skeleton key={i} style={{ width: "100%", height: "100%" }} />
+              ))}
             </div>
           ) : (
             <FullCalendar

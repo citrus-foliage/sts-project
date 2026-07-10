@@ -8,8 +8,86 @@ import PostCard from "@/components/forum/PostCard";
 import ForumSidebar from "@/components/forum/ForumSidebar";
 import RecentlyViewed from "@/components/forum/RecentlyViewed";
 import FeatureHidden from "@/components/layout/FeatureHidden";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { useSettings } from "@/contexts/SettingsContext";
 
 type SortMode = "new" | "hot" | "top";
+
+function ForumSkeleton({ isMobile }: { isMobile: boolean }) {
+  return (
+    <div className="flex gap-5">
+      {!isMobile && (
+        <div
+          className="flex-shrink-0 flex flex-col gap-3"
+          style={{ width: "220px" }}
+        >
+          <Skeleton
+            style={{ width: "100%", height: "120px", borderRadius: "16px" }}
+          />
+          <Skeleton
+            style={{ width: "100%", height: "80px", borderRadius: "16px" }}
+          />
+        </div>
+      )}
+
+      <div className="flex flex-col gap-4 flex-1 min-w-0">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-2">
+            <Skeleton style={{ width: "150px", height: "22px" }} />
+            <Skeleton style={{ width: "260px", height: "14px" }} />
+          </div>
+          <Skeleton
+            style={{ width: "100px", height: "38px", borderRadius: "12px" }}
+          />
+        </div>
+
+        {/* Search bar */}
+        <Skeleton
+          style={{ width: "100%", height: "40px", borderRadius: "12px" }}
+        />
+
+        {/* Sort + flair chips */}
+        <div className="flex flex-col gap-2">
+          <Skeleton
+            style={{ width: "180px", height: "32px", borderRadius: "12px" }}
+          />
+          <div className="flex gap-1.5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton
+                key={i}
+                style={{ width: "70px", height: "22px", borderRadius: "999px" }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Post cards */}
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-2xl p-4 flex flex-col gap-2"
+              style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+            >
+              <Skeleton style={{ width: "60%", height: "14px" }} />
+              <Skeleton style={{ width: "90%", height: "12px" }} />
+              <Skeleton style={{ width: "40%", height: "11px" }} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {!isMobile && (
+        <div className="flex-shrink-0" style={{ width: "220px" }}>
+          <Skeleton
+            style={{ width: "100%", height: "200px", borderRadius: "16px" }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ForumPage() {
   const { data: session } = useSession();
@@ -24,20 +102,12 @@ export default function ForumPage() {
   const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [showFeature, setShowFeature] = useState(true);
-  const [checkingFeature, setCheckingFeature] = useState(true);
+  // Feature visibility now comes from the shared SettingsContext (fetched
+  // once per session in the layout) instead of a page-local fetch.
+  const { settings, loading: checkingFeature } = useSettings();
+  const showFeature = settings.show_forum !== false;
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileInfo, setShowMobileInfo] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.settings?.show_forum === false) setShowFeature(false);
-      })
-      .catch(() => {})
-      .finally(() => setCheckingFeature(false));
-  }, []);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024);
@@ -137,11 +207,7 @@ export default function ForumPage() {
   const visiblePosts = posts.filter((p) => !hiddenPostIds.has(p.id));
 
   if (checkingFeature) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p style={{ fontSize: "13px", color: "#999" }}>Loading...</p>
-      </div>
-    );
+    return <ForumSkeleton isMobile={isMobile} />;
   }
 
   if (!showFeature) return <FeatureHidden featureName="Discussion Hub" />;
@@ -430,8 +496,18 @@ export default function ForumPage() {
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center h-48">
-            <p style={{ fontSize: "13px", color: "#999" }}>Loading posts...</p>
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-2xl p-4 flex flex-col gap-2"
+                style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+              >
+                <Skeleton style={{ width: "60%", height: "14px" }} />
+                <Skeleton style={{ width: "90%", height: "12px" }} />
+                <Skeleton style={{ width: "40%", height: "11px" }} />
+              </div>
+            ))}
           </div>
         ) : visiblePosts.length === 0 ? (
           <div

@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useSettings } from "@/contexts/SettingsContext";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type Tab = "general" | "notifications" | "privacy" | "account";
 
@@ -44,9 +46,118 @@ const DEFAULT_SETTINGS: UserSettings = {
   show_resources: true,
 };
 
+function SettingsSkeleton() {
+  return (
+    <div style={{ maxWidth: "760px" }}>
+      {/* Page header */}
+      <div className="flex items-start justify-between mb-6">
+        <div className="flex flex-col gap-2">
+          <Skeleton style={{ width: "160px", height: "22px" }} />
+          <Skeleton style={{ width: "240px", height: "14px" }} />
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div
+        className="flex gap-4"
+        style={{ borderBottom: "0.5px solid #ebebeb", marginBottom: "24px" }}
+      >
+        {["General", "Notifications", "Privacy", "Account"].map((label) => (
+          <Skeleton
+            key={label}
+            style={{
+              width: `${label.length * 7}px`,
+              height: "16px",
+              marginBottom: "10px",
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Section title */}
+      <Skeleton
+        style={{ width: "80px", height: "13px", marginBottom: "12px" }}
+      />
+
+      {/* Rows, mirroring the Row component's 200px label + flex value layout */}
+      <div
+        className="rounded-2xl px-6"
+        style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+      >
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center"
+            style={{
+              padding: "18px 0",
+              borderBottom: i < 3 ? "0.5px solid #f5f4f0" : "none",
+              gap: "16px",
+            }}
+          >
+            <div
+              style={{ width: "200px", flexShrink: 0 }}
+              className="flex flex-col gap-1.5"
+            >
+              <Skeleton style={{ width: "70%", height: "13px" }} />
+              <Skeleton style={{ width: "90%", height: "11px" }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <Skeleton
+                style={{ width: "120px", height: "24px", borderRadius: "12px" }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Second section, shorter — mirrors the pattern repeating (Preferences/Features etc.) */}
+      <Skeleton
+        style={{ width: "100px", height: "13px", margin: "32px 0 12px" }}
+      />
+      <div
+        className="rounded-2xl px-6"
+        style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+      >
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center"
+            style={{
+              padding: "18px 0",
+              borderBottom: i < 2 ? "0.5px solid #f5f4f0" : "none",
+              gap: "16px",
+            }}
+          >
+            <div
+              style={{ width: "200px", flexShrink: 0 }}
+              className="flex flex-col gap-1.5"
+            >
+              <Skeleton style={{ width: "60%", height: "13px" }} />
+              <Skeleton style={{ width: "80%", height: "11px" }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <Skeleton
+                style={{ width: "36px", height: "20px", borderRadius: "10px" }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const router = useRouter();
+
+  // Feature-visibility and preference values come from the shared
+  // SettingsContext instead of this page fetching its own copy of
+  // /api/settings. This page still owns saving (POST) — after a save it
+  // dispatches "settings-updated", which the context already listens for
+  // and uses to refetch, so every other page picks up the change too.
+  const { settings: contextSettings, loading: contextSettingsLoading } =
+    useSettings();
 
   const [activeTab, setActiveTab] = useState<Tab>("general");
   const [isMobile, setIsMobile] = useState(false);
@@ -93,26 +204,24 @@ export default function SettingsPage() {
   // Fetch settings
   const fetchSettings = useCallback(async () => {
     try {
-      const [settingsRes, canvasRes, mutedRes] = await Promise.all([
-        fetch("/api/settings"),
+      const [canvasRes, mutedRes] = await Promise.all([
         fetch("/api/schedule/canvas"),
         fetch("/api/settings/muted-words"),
       ]);
-      const [settingsData, canvasData, mutedData] = await Promise.all([
-        settingsRes.json(),
+      const [canvasData, mutedData] = await Promise.all([
         canvasRes.json(),
         mutedRes.json(),
       ]);
-      if (settingsData.settings) {
-        const loaded: UserSettings = {
-          ...DEFAULT_SETTINGS,
-          ...settingsData.settings,
-          display_name:
-            settingsData.settings.display_name ?? session?.user?.name ?? "",
-        };
-        setSettings(loaded);
-        setSavedSettings(loaded);
-      }
+      const loaded: UserSettings = {
+        ...DEFAULT_SETTINGS,
+        ...contextSettings,
+        display_name:
+          (contextSettings.display_name as string | undefined) ??
+          session?.user?.name ??
+          "",
+      };
+      setSettings(loaded);
+      setSavedSettings(loaded);
       setCalendarSettings({
         canvas_ical_url: canvasData.hasUrl ? "connected" : null,
       });
@@ -122,11 +231,11 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [session]);
+  }, [session, contextSettings]);
 
   useEffect(() => {
-    if (session) fetchSettings();
-  }, [session, fetchSettings]);
+    if (session && !contextSettingsLoading) fetchSettings();
+  }, [session, contextSettingsLoading, fetchSettings]);
 
   // Browser navigation guard (tab close / reload)
   useEffect(() => {
@@ -462,11 +571,7 @@ export default function SettingsPage() {
   ];
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p style={{ fontSize: "13px", color: "#999" }}>Loading settings...</p>
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   return (

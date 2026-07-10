@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ForumFlair, FLAIR_CONFIG } from "@/types/forum";
 import FlairBadge from "./FlairBadge";
+import { useSettings } from "@/contexts/SettingsContext";
 
 type Props = {
   onSubmit: (post: {
@@ -31,18 +32,23 @@ export default function PostForm({ onSubmit, onCancel }: Props) {
   const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch anonymity preference
+  // Anonymity default now comes from the shared SettingsContext instead of
+  // this form fetching its own copy of /api/settings. Applied once, on the
+  // first render where the context has finished loading — after that the
+  // user's own toggle takes over, so a background settings refetch elsewhere
+  // doesn't silently flip this open form's toggle.
+  const { settings: userSettings, loading: settingsLoading } = useSettings();
+  const appliedDefaultRef = useRef(false);
+
   useEffect(() => {
-    fetch("/api/settings")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.settings?.forum_default_anonymous !== undefined) {
-          setIsAnonymous(data.settings.forum_default_anonymous);
-        }
-        setSettingsLoaded(true);
-      })
-      .catch(() => setSettingsLoaded(true));
-  }, []);
+    if (!settingsLoading && !appliedDefaultRef.current) {
+      if (userSettings.forum_default_anonymous !== undefined) {
+        setIsAnonymous(userSettings.forum_default_anonymous);
+      }
+      setSettingsLoaded(true);
+      appliedDefaultRef.current = true;
+    }
+  }, [settingsLoading, userSettings]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

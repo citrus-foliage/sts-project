@@ -8,6 +8,8 @@ import DailyBudgetWidget from "@/components/budget/DailyBudgetWidget";
 import TransactionLog from "@/components/budget/TransactionLog";
 import FeatureHidden from "@/components/layout/FeatureHidden";
 import BudgetHistory from "@/components/budget/BudgetHistory";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { useSettings } from "@/contexts/SettingsContext";
 
 type Category = {
   id: string;
@@ -44,6 +46,102 @@ type CarryOverResult = {
   last_month_label?: string;
 };
 
+function BudgetSkeleton({ isMobile }: { isMobile: boolean }) {
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2">
+          <Skeleton style={{ width: "90px", height: "12px" }} />
+          <Skeleton style={{ width: "180px", height: "16px" }} />
+        </div>
+        <Skeleton
+          style={{ width: "90px", height: "30px", borderRadius: "8px" }}
+        />
+      </div>
+
+      {/* Tabs */}
+      <div
+        className="flex gap-4"
+        style={{ borderBottom: "0.5px solid #ebebeb" }}
+      >
+        <Skeleton
+          style={{ width: "80px", height: "16px", marginBottom: "10px" }}
+        />
+        <Skeleton
+          style={{ width: "60px", height: "16px", marginBottom: "10px" }}
+        />
+      </div>
+
+      {isMobile ? (
+        <div className="flex flex-col gap-3">
+          <div
+            className="rounded-2xl p-4 flex items-center justify-center"
+            style={{
+              background: "#fff",
+              border: "0.5px solid #ebebeb",
+              height: "220px",
+            }}
+          >
+            <Skeleton
+              style={{ width: "140px", height: "140px", borderRadius: "50%" }}
+            />
+          </div>
+          <Skeleton
+            style={{ width: "100%", height: "48px", borderRadius: "12px" }}
+          />
+          <div
+            className="rounded-2xl p-4 flex flex-col gap-3"
+            style={{
+              background: "#fff",
+              border: "0.5px solid #ebebeb",
+              minHeight: "300px",
+            }}
+          >
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} style={{ width: "100%", height: "40px" }} />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div
+          className="flex gap-4 rounded-2xl overflow-hidden"
+          style={{
+            background: "#fff",
+            border: "0.5px solid #ebebeb",
+            minHeight: "600px",
+          }}
+        >
+          {/* Left — donut + categories */}
+          <div
+            className="p-5 flex flex-col items-center gap-4"
+            style={{
+              width: "300px",
+              minWidth: "300px",
+              borderRight: "0.5px solid #ebebeb",
+            }}
+          >
+            <Skeleton
+              style={{ width: "160px", height: "160px", borderRadius: "50%" }}
+            />
+            <div className="flex flex-col gap-2 w-full">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} style={{ width: "100%", height: "28px" }} />
+              ))}
+            </div>
+          </div>
+          {/* Right — transaction log */}
+          <div className="flex-1 p-5 flex flex-col gap-3">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} style={{ width: "100%", height: "44px" }} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function BudgetPage() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -57,19 +155,10 @@ export default function BudgetPage() {
   const [carryOverLoading, setCarryOverLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Feature visibility check
-  const [showFeature, setShowFeature] = useState(true);
-  const [checkingFeature, setCheckingFeature] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.settings?.show_budget === false) setShowFeature(false);
-      })
-      .catch(() => {})
-      .finally(() => setCheckingFeature(false));
-  }, []);
+  // Feature visibility now comes from the shared SettingsContext (fetched
+  // once per session in the layout) instead of a page-local fetch.
+  const { settings, loading: checkingFeature } = useSettings();
+  const showFeature = settings.show_budget !== false;
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024);
@@ -155,11 +244,7 @@ export default function BudgetPage() {
   });
 
   if (checkingFeature) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p style={{ fontSize: "13px", color: "#999" }}>Loading...</p>
-      </div>
-    );
+    return <BudgetSkeleton isMobile={isMobile} />;
   }
 
   if (!showFeature) {
@@ -167,15 +252,7 @@ export default function BudgetPage() {
   }
 
   if (loading || carryOverLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p style={{ fontSize: "13px", color: "#999" }}>
-          {carryOverLoading
-            ? "Setting up your budget..."
-            : "Loading your budget..."}
-        </p>
-      </div>
-    );
+    return <BudgetSkeleton isMobile={isMobile} />;
   }
 
   // No plan — show setup

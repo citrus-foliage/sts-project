@@ -7,8 +7,51 @@ import ListView from "@/components/tasks/ListView";
 import TaskForm from "@/components/tasks/TaskForm";
 import TaskDetailModal from "@/components/tasks/TaskDetailModal";
 import FeatureHidden from "@/components/layout/FeatureHidden";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { useSettings } from "@/contexts/SettingsContext";
 
 type ViewMode = "board" | "list";
+
+function TasksSkeleton() {
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-2">
+          <Skeleton style={{ width: "160px", height: "22px" }} />
+          <Skeleton style={{ width: "140px", height: "14px" }} />
+        </div>
+        <Skeleton
+          style={{ width: "110px", height: "38px", borderRadius: "12px" }}
+        />
+      </div>
+
+      {/* Toolbar */}
+      <Skeleton
+        style={{ width: "160px", height: "34px", borderRadius: "12px" }}
+      />
+
+      {/* Kanban columns */}
+      <div className="flex gap-4">
+        {[0, 1, 2].map((col) => (
+          <div key={col} className="flex-1 flex flex-col gap-3">
+            <Skeleton style={{ width: "90px", height: "14px" }} />
+            {[0, 1].map((card) => (
+              <div
+                key={card}
+                className="rounded-xl p-3 flex flex-col gap-2"
+                style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+              >
+                <Skeleton style={{ width: "70%", height: "13px" }} />
+                <Skeleton style={{ width: "45%", height: "11px" }} />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -19,19 +62,10 @@ export default function TasksPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [filter, setFilter] = useState<TaskStatus | "all">("all");
 
-  // Feature visibility check
-  const [showFeature, setShowFeature] = useState(true);
-  const [checkingFeature, setCheckingFeature] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.settings?.show_tasks === false) setShowFeature(false);
-      })
-      .catch(() => {})
-      .finally(() => setCheckingFeature(false));
-  }, []);
+  // Feature visibility now comes from the shared SettingsContext (fetched
+  // once per session in the layout) instead of a page-local fetch.
+  const { settings, loading: checkingFeature } = useSettings();
+  const showFeature = settings.show_tasks !== false;
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -109,11 +143,7 @@ export default function TasksPage() {
   const completedCount = tasks.filter((t) => t.status === "completed").length;
 
   if (checkingFeature) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p style={{ fontSize: "13px", color: "#999" }}>Loading...</p>
-      </div>
-    );
+    return <TasksSkeleton />;
   }
 
   if (!showFeature) {
@@ -324,8 +354,22 @@ export default function TasksPage() {
 
       {/* Board or List View */}
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <p style={{ fontSize: "13px", color: "#999" }}>Loading tasks...</p>
+        <div className="flex gap-4">
+          {[0, 1, 2].map((col) => (
+            <div key={col} className="flex-1 flex flex-col gap-3">
+              <Skeleton style={{ width: "90px", height: "14px" }} />
+              {[0, 1].map((card) => (
+                <div
+                  key={card}
+                  className="rounded-xl p-3 flex flex-col gap-2"
+                  style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+                >
+                  <Skeleton style={{ width: "70%", height: "13px" }} />
+                  <Skeleton style={{ width: "45%", height: "11px" }} />
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       ) : view === "board" ? (
         <KanbanBoard tasks={tasks} onRefresh={fetchTasks} />
