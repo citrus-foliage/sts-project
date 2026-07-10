@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSettings } from "@/contexts/SettingsContext";
 
 // Icons
 function GridIcon() {
@@ -242,7 +243,6 @@ const navigation = [
 ];
 
 const bottomNav = [
-  { label: "Achievements", href: "/achievements", icon: <TrophyIcon /> },
   { label: "Settings", href: "/settings", icon: <SettingsIcon /> },
 ];
 
@@ -267,9 +267,7 @@ export default function Sidebar() {
   // True when screen width is below lg breakpoint (1024px)
   const [isMobile, setIsMobile] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [featureSettings, setFeatureSettings] = useState<
-    Record<string, boolean>
-  >({});
+  const { settings: featureSettings } = useSettings();
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024);
@@ -287,36 +285,9 @@ export default function Sidebar() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    const loadFeatureSettings = () => {
-      fetch("/api/settings")
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.settings) setFeatureSettings(d.settings);
-        })
-        .catch(() => {});
-    };
-
-    // Initial load
-    loadFeatureSettings();
-
-    // Re-fetch as soon as the Settings page saves changes in this tab
-    window.addEventListener("settings-updated", loadFeatureSettings);
-
-    // Re-fetch when the user comes back to this tab (covers changes made
-    // in another tab, or the settings-updated listener being missed)
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") loadFeatureSettings();
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("focus", loadFeatureSettings);
-
-    return () => {
-      window.removeEventListener("settings-updated", loadFeatureSettings);
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("focus", loadFeatureSettings);
-    };
-  }, []);
+  // Feature visibility settings now come from SettingsContext (fetched once
+  // per session in the layout) instead of this component fetching its own
+  // copy of /api/settings on every mount.
 
   const isActive = (href: string) => pathname === href;
 

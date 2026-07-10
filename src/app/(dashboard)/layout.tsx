@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import OnboardingWrapper from "@/components/layout/OnboardingWrapper";
+import { SettingsProvider } from "@/contexts/SettingsContext";
 
 export default async function DashboardLayout({
   children,
@@ -24,17 +25,19 @@ export default async function DashboardLayout({
   const showOnboarding = !settings?.onboarding_complete;
 
   return (
-    <div
-      className="flex h-screen overflow-hidden"
-      style={{ background: "#f5f4f0" }}
-    >
-      <Sidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto p-5">{children}</main>
+    <SettingsProvider>
+      <div
+        className="flex h-screen overflow-hidden"
+        style={{ background: "#f5f4f0" }}
+      >
+        <Sidebar />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <Topbar />
+          <main className="flex-1 overflow-y-auto p-5">{children}</main>
+        </div>
+        {/* Onboarding tour — shown once on first login */}
+        {showOnboarding && <OnboardingWrapper />}
       </div>
-      {/* Onboarding tour — shown once on first login */}
-      {showOnboarding && <OnboardingWrapper />}
-    </div>
+    </SettingsProvider>
   );
 }
