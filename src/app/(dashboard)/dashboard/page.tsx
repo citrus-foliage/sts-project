@@ -10,14 +10,70 @@ export default async function DashboardPage() {
   const firstName = session?.user?.name?.split(" ")[0] ?? "Student";
   const userId = session?.user?.email ?? "";
 
-  // Fetch feature visibility settings server-side
-  const { data: settingsData } = await supabaseAdmin
-    .from("user_settings")
-    .select(
-      "show_tasks, show_budget, show_survival, show_schedule, show_timer, show_forum, show_resources",
-    )
-    .eq("user_id", userId)
-    .single();
+  const month = new Date().toISOString().slice(0, 7);
+
+  // All of these queries are independent of one another (none needs another's
+  // result), so they run concurrently instead of one-after-another. This is
+  // the single biggest win on this page — previously ~8 sequential round
+  // trips to Supabase, now 1 round trip's worth of wall-clock time.
+  const [
+    { data: settingsData },
+    { data: hiddenPostsData },
+    { data: tasksData },
+    { data: postsData },
+    { data: budgetPlan },
+    { data: dailyConfig },
+    { data: streakData },
+  ] = await Promise.all([
+    // Feature visibility settings
+    supabaseAdmin
+      .from("user_settings")
+      .select(
+        "show_tasks, show_budget, show_survival, show_schedule, show_timer, show_forum, show_resources",
+      )
+      .eq("user_id", userId)
+      .single(),
+    // Hidden post IDs so they don't appear in the Discussion Hub widget
+    supabaseAdmin.from("hidden_posts").select("post_id").eq("user_id", userId),
+    // Tasks
+    supabaseAdmin
+      .from("tasks_with_subtask_count")
+      .select(
+        "id, title, status, priority, due_date, created_at, subtask_count, completed_subtask_count",
+      )
+      .eq("user_id", userId)
+      .neq("status", "completed")
+      .order("due_date", { ascending: true, nullsFirst: false }),
+    // Latest forum posts (fetch extra so we still have 5 after filtering hidden posts)
+    supabaseAdmin
+      .from("forum_posts")
+      .select(
+        "id, title, flair, anon_code, is_anonymous, upvotes, created_at, author_id",
+      )
+      .neq("status", "removed")
+      .order("is_pinned", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(20),
+    // Budget plan for Available Balance stat card
+    supabaseAdmin
+      .from("budget_plans")
+      .select("total_budget, transactions(*)")
+      .eq("user_id", userId)
+      .eq("month", month)
+      .single(),
+    // Daily budget config for cycle date
+    supabaseAdmin
+      .from("daily_budget_config")
+      .select("next_budget_cycle")
+      .eq("user_id", userId)
+      .single(),
+    // Activity streak
+    supabaseAdmin
+      .from("user_settings")
+      .select("current_streak, longest_streak")
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
 
   // Default to true if no settings row exists yet
   const show = {
@@ -30,22 +86,7 @@ export default async function DashboardPage() {
     resources: settingsData?.show_resources !== false,
   };
 
-  // Fetch hidden post IDs so they don't appear in the Discussion Hub widget
-  const { data: hiddenPostsData } = await supabaseAdmin
-    .from("hidden_posts")
-    .select("post_id")
-    .eq("user_id", userId);
-
   const hiddenPostIds = new Set((hiddenPostsData ?? []).map((h) => h.post_id));
-
-  const { data: tasksData } = await supabaseAdmin
-    .from("tasks_with_subtask_count")
-    .select(
-      "id, title, status, priority, due_date, created_at, subtask_count, completed_subtask_count",
-    )
-    .eq("user_id", userId)
-    .neq("status", "completed")
-    .order("due_date", { ascending: true, nullsFirst: false });
 
   const tasks = tasksData ?? [];
 
@@ -63,23 +104,13 @@ export default async function DashboardPage() {
 
   const recentTasks = tasks.slice(0, 7);
 
-  // Fetch latest forum posts
-  const { data: postsData } = await supabaseAdmin
-    .from("forum_posts")
-    .select(
-      "id, title, flair, anon_code, is_anonymous, upvotes, created_at, author_id",
-    )
-    .neq("status", "removed")
-    .order("is_pinned", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(20); // fetch extra so we still have 5 after filtering hidden posts
-
   // Filter out hidden posts, then take 5
   const visiblePostsData = (postsData ?? [])
     .filter((p) => !hiddenPostIds.has(p.id))
     .slice(0, 5);
 
-  // Fetch comment counts for those posts
+  // Comment counts depend on visiblePostsData (which depends on the two
+  // queries above), so this one has to stay a separate round trip after them.
   const postIds = visiblePostsData.map((p) => p.id);
   let commentCounts: Record<string, number> = {};
   if (postIds.length > 0) {
@@ -101,15 +132,6 @@ export default async function DashboardPage() {
     comment_count: commentCounts[p.id] ?? 0,
   }));
 
-  // Fetch budget plan for Available Balance stat card
-  const month = new Date().toISOString().slice(0, 7);
-  const { data: budgetPlan } = await supabaseAdmin
-    .from("budget_plans")
-    .select("total_budget, transactions(*)")
-    .eq("user_id", userId)
-    .eq("month", month)
-    .single();
-
   // Calculate remaining balance
   let availableBalance: number | null = null;
   if (budgetPlan) {
@@ -120,20 +142,6 @@ export default async function DashboardPage() {
       .reduce((sum, t) => sum + t.amount, 0);
     availableBalance = budgetPlan.total_budget - totalSpent;
   }
-
-  // Fetch daily budget config for cycle date
-  const { data: dailyConfig } = await supabaseAdmin
-    .from("daily_budget_config")
-    .select("next_budget_cycle")
-    .eq("user_id", userId)
-    .single();
-
-  // Fetch activity streak
-  const { data: streakData } = await supabaseAdmin
-    .from("user_settings")
-    .select("current_streak, longest_streak")
-    .eq("user_id", userId)
-    .maybeSingle();
 
   const currentStreak = streakData?.current_streak ?? 0;
   const longestStreak = streakData?.longest_streak ?? 0;
