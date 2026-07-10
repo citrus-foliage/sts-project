@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { FLAIR_CONFIG, FORUM_RULES, ForumFlair } from "@/types/forum";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type AdminPost = {
   id: string;
@@ -50,6 +51,66 @@ const STANDING_CONFIG = {
   timeout: { label: "Timeout", color: "#D85A30" },
   banned: { label: "Banned", color: "#A32D2D" },
 };
+
+function AdminSkeleton() {
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-2">
+          <Skeleton style={{ width: "120px", height: "22px" }} />
+          <Skeleton style={{ width: "180px", height: "14px" }} />
+        </div>
+        <div className="flex items-center gap-2">
+          {[0, 1, 2].map((i) => (
+            <Skeleton
+              key={i}
+              style={{ width: "80px", height: "34px", borderRadius: "12px" }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Skeleton
+          style={{ width: "300px", height: "38px", borderRadius: "12px" }}
+        />
+        <Skeleton
+          style={{
+            flex: 1,
+            minWidth: "200px",
+            height: "38px",
+            borderRadius: "12px",
+          }}
+        />
+      </div>
+
+      {/* Post cards */}
+      <div className="flex flex-col gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="rounded-2xl p-5 flex flex-col gap-3"
+            style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+          >
+            <div className="flex items-center gap-2">
+              <Skeleton
+                style={{ width: "60px", height: "18px", borderRadius: "999px" }}
+              />
+              <Skeleton
+                style={{ width: "70px", height: "18px", borderRadius: "999px" }}
+              />
+            </div>
+            <Skeleton style={{ width: "70%", height: "14px" }} />
+            <Skeleton style={{ width: "95%", height: "12px" }} />
+            <Skeleton style={{ width: "40%", height: "11px" }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const router = useRouter();
@@ -195,13 +256,7 @@ export default function AdminPage() {
   };
 
   if (!adminRole) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p style={{ fontSize: "13px", color: "#999" }}>
-          Checking permissions...
-        </p>
-      </div>
-    );
+    return <AdminSkeleton />;
   }
 
   return (
@@ -382,8 +437,34 @@ export default function AdminPage() {
 
       {/* Posts list */}
       {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <p style={{ fontSize: "13px", color: "#999" }}>Loading posts...</p>
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-2xl p-5 flex flex-col gap-3"
+              style={{ background: "#fff", border: "0.5px solid #ebebeb" }}
+            >
+              <div className="flex items-center gap-2">
+                <Skeleton
+                  style={{
+                    width: "60px",
+                    height: "18px",
+                    borderRadius: "999px",
+                  }}
+                />
+                <Skeleton
+                  style={{
+                    width: "70px",
+                    height: "18px",
+                    borderRadius: "999px",
+                  }}
+                />
+              </div>
+              <Skeleton style={{ width: "70%", height: "14px" }} />
+              <Skeleton style={{ width: "95%", height: "12px" }} />
+              <Skeleton style={{ width: "40%", height: "11px" }} />
+            </div>
+          ))}
         </div>
       ) : posts.length === 0 ? (
         <div
