@@ -153,6 +153,7 @@ export default function BudgetPage() {
   const [activeTab, setActiveTab] = useState<"current" | "history">("current");
   const [carryOver, setCarryOver] = useState<CarryOverResult | null>(null);
   const [carryOverLoading, setCarryOverLoading] = useState(false);
+  const [carryOverAttempted, setCarryOverAttempted] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Feature visibility now comes from the shared SettingsContext (fetched
@@ -195,8 +196,8 @@ export default function BudgetPage() {
     }
   }, []);
 
-  // Try carry-over when plan fetch returns null
   const tryCarryOver = useCallback(async () => {
+    setCarryOverAttempted(true);
     setCarryOverLoading(true);
     try {
       const res = await fetch("/api/budget/carry-over", { method: "POST" });
@@ -220,12 +221,24 @@ export default function BudgetPage() {
     init();
   }, [fetchPlan]);
 
-  // When fetchPlan resolves with no plan, try carry-over once
   useEffect(() => {
-    if (!loading && !plan && !carryOverLoading && !isEditing) {
+    if (
+      !loading &&
+      !plan &&
+      !carryOverLoading &&
+      !carryOverAttempted &&
+      !isEditing
+    ) {
       tryCarryOver();
     }
-  }, [loading, plan, carryOverLoading, isEditing, tryCarryOver]);
+  }, [
+    loading,
+    plan,
+    carryOverLoading,
+    carryOverAttempted,
+    isEditing,
+    tryCarryOver,
+  ]);
 
   const handleTransactionAdded = () => {
     fetchPlan();
@@ -324,6 +337,7 @@ export default function BudgetPage() {
           onClick={() => {
             setPlan(null);
             setIsEditing(true);
+            setCarryOverAttempted(false);
           }}
           className="text-xs px-3 py-1.5 rounded-lg"
           style={{
